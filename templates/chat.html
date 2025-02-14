@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Histórico do Blog: {{ task.title }}</h5>
+        </div>
+        <div class="card-body">
+            <!-- Histórico de Mensagens -->
+            <div id="chatHistory" class="mb-3" style="max-height: 400px; overflow-y: auto;">
+                {% for comment in comments %}
+                <div class="mb-3">
+                    <strong>{{ comment.user.username }}</strong> 
+                    <small class="text-muted">{{ comment.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                    <p class="mb-0">{{ comment.message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Formulário para Enviar Mensagem -->
+            <form id="chatForm">
+                <div class="mb-3">
+                    <textarea class="form-control" id="messageInput" rows="3" placeholder="Digite sua mensagem..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Enviar</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('messageInput');
+    const chatHistory = document.getElementById('chatHistory');
+
+    // Enviar nova mensagem
+    chatForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const message = messageInput.value.trim();
+
+        if (message) {
+            fetch(`/task/update/{{ task.id }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Atualiza o histórico de mensagens
+                    const newMessage = document.createElement('div');
+                    newMessage.className = 'mb-3';
+                    newMessage.innerHTML = `
+                        <strong>{{ session.username }}</strong> 
+                        <small class="text-muted">Agora</small>
+                        <p class="mb-0">${message}</p>
+                    `;
+                    chatHistory.appendChild(newMessage);
+                    chatHistory.scrollTop = chatHistory.scrollHeight; // Rola para a última mensagem
+                    messageInput.value = ''; // Limpa o campo de texto
+                } else {
+                    alert('Falha ao enviar a mensagem.');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

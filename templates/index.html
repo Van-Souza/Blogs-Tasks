@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <!-- Campo de Pesquisa -->
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="search" placeholder="Pesquisar tarefas..." value="{{ search }}">
+                    </div>
+                    <!-- Filtro por Status -->
+                    <div class="col-md-2">
+                        <select class="form-select" name="status">
+                            <option value="">Todos os status</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pendente</option>
+                            <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>Em andamento</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Concluída</option>
+                        </select>
+                    </div>
+                    <!-- Filtro por Prioridade -->
+                    <div class="col-md-2">
+                        <select class="form-select" name="priority">
+                            <option value="">Todas as prioridades</option>
+                            <option value="1" {% if priority_filter == 1 %}selected{% endif %}>Alta</option>
+                            <option value="2" {% if priority_filter == 2 %}selected{% endif %}>Média</option>
+                            <option value="3" {% if priority_filter == 3 %}selected{% endif %}>Baixa</option>
+                        </select>
+                    </div>
+                    <!-- Filtro por Usuário -->
+                    <div class="col-md-3">
+                        <select class="form-select" name="user">
+                            <option value="">Todos os usuários</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}" {% if user_filter == user.id %}selected{% endif %}>
+                                {{ user.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- Botão de Filtrar -->
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Tarefas</h5>
+                <span class="badge bg-light text-primary">{{ tasks.total }} tarefas</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Status</th>
+                            <th>Prioridade</th>
+                            <th>Prazo</th>
+                            <th>Responsável</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks.items %}
+                        <tr>
+                            <td>
+                                <a href="{{ task.url }}" target="_blank" class="text-decoration-none">
+                                    {{ task.title }}
+                                </a>
+                            </td>
+                            <td class="{% if task.status == 'pending' %}status-pending
+                                    {% elif task.status == 'in_progress' %}status-in-progress
+                                    {% elif task.status == 'completed' %}status-completed{% endif %}">
+                                <select class="form-select form-select-sm status-select" 
+                                        data-task-id="{{ task.id }}"
+                                        {% if session.role != 'admin' and task.assigned_to != session.user_id %}disabled{% endif %}>
+                                    <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pendente</option>
+                                    <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>Em andamento</option>
+                                    <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>Concluída</option>
+                                </select>
+                            </td>
+                            <td>
+                                <span class="badge {% if task.priority == 1 %}bg-danger{% elif task.priority == 2 %}bg-warning{% else %}bg-info{% endif %}">
+                                    {% if task.priority == 1 %}Alta{% elif task.priority == 2 %}Média{% else %}Baixa{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                {% if task.deadline %}
+                                    {{ task.deadline.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    Sem prazo
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if session.role == 'admin' %}
+                                <select class="form-select form-select-sm assign-select" data-task-id="{{ task.id }}">
+                                    <option value="">Não atribuído</option>
+                                    {% for user in users %}
+                                    <option value="{{ user.id }}" {% if task.assigned_to == user.id %}selected{% endif %}>
+                                        {{ user.username }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% else %}
+                                {{ task.assignee.username if task.assignee else 'Não atribuído' }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-chat" data-task-id="{{ task.id }}">
+                                        <i class="bi bi-chat"></i> Chat
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            data-bs-toggle="modal" data-bs-target="#taskModal"
+                                            data-task-id="{{ task.id }}"
+                                            data-task-title="{{ task.title }}"
+                                            data-task-deadline="{{ task.deadline.strftime('%Y-%m-%d') if task.deadline else '' }}"
+                                            data-task-priority="{{ task.priority }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    {% if session.role == 'admin' %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-task" data-task-id="{{ task.id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if tasks.pages > 1 %}
+            <div class="card-footer">
+                <nav>
+                    <ul class="pagination justify-content-center mb-0">
+                        {% for page in range(1, tasks.pages + 1) %}
+                        <li class="page-item {% if page == tasks.page %}active{% endif %}">
+                            <a class="page-link" 
+                               href="{{ url_for('index', page=page, status=status_filter, priority=priority_filter, user=user_filter, search=search) }}">
+                                {{ page }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição de Tarefa -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Tarefa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <input type="hidden" id="taskId">
+                    <div class="mb-3">
+                        <label class="form-label">Título</label>
+                        <input type="text" class="form-control" id="taskTitle" readonly>
+                    </div>
+                    {% if session.role == 'admin' %}
+                    <div class="mb-3">
+                        <label class="form-label">Prazo</label>
+                        <input type="date" class="form-control" id="taskDeadline">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prioridade</label>
+                        <select class="form-select" id="taskPriority">
+                            <option value="1">Alta</option>
+                            <option value="2">Média</option>
+                            <option value="3">Baixa</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" id="saveTask">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const taskModal = document.getElementById('taskModal');
+
+    // Carregar dados da tarefa ao abrir o modal
+    taskModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const taskId = button.dataset.taskId;
+        const taskTitle = button.dataset.taskTitle;
+        const taskDeadline = button.dataset.taskDeadline;
+        const taskPriority = button.dataset.taskPriority;
+
+        document.getElementById('taskId').value = taskId;
+        document.getElementById('taskTitle').value = taskTitle;
+
+        {% if session.role == 'admin' %}
+        document.getElementById('taskDeadline').value = taskDeadline;
+        document.getElementById('taskPriority').value = taskPriority;
+        {% endif %}
+    });
+
+    // Salvar atualizações da tarefa
+    document.getElementById('saveTask').addEventListener('click', function() {
+        const taskId = document.getElementById('taskId').value;
+        const data = {};
+
+        {% if session.role == 'admin' %}
+        const deadlineInput = document.getElementById('taskDeadline').value;
+        data.deadline = deadlineInput || null;
+        data.priority = document.getElementById('taskPriority').value;
+        {% endif %}
+
+        fetch(`/task/update/${taskId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Tarefa atualizada com sucesso', 'success');
+                location.reload();
+            } else {
+                showToast('Falha ao atualizar a tarefa', 'danger');
+            }
+        });
+    });
+
+    // Redirecionar para a tela de chat
+    document.querySelectorAll('.btn-chat').forEach(button => {
+        button.addEventListener('click', function() {
+            const taskId = this.dataset.taskId;
+            window.location.href = `/task/${taskId}/chat`; // Redireciona para a tela de chat
+        });
+    });
+
+    // Atualização do status da tarefa
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const taskId = this.dataset.taskId;
+            const status = this.value;
+
+            const td = this.closest('td');
+            if (td) {
+                td.classList.remove('status-pending', 'status-in-progress', 'status-completed');
+                if (status === 'pending') {
+                    td.classList.add('status-pending');
+                } else if (status === 'in_progress') {
+                    td.classList.add('status-in-progress');
+                } else if (status === 'completed') {
+                    td.classList.add('status-completed');
+                }
+            }
+
+            fetch(`/task/update/${taskId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    showToast('Falha ao atualizar o status da tarefa', 'danger');
+                    location.reload();
+                } else {
+                    showToast('Status da tarefa atualizado com sucesso', 'success');
+                }
+            });
+        });
+    });
+
+    // Atribuição de tarefa
+    document.querySelectorAll('.assign-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const taskId = this.dataset.taskId;
+            const assignedTo = this.value;
+
+            fetch(`/task/update/${taskId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ assigned_to: assignedTo })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    showToast('Falha ao atribuir a tarefa', 'danger');
+                    location.reload();
+                } else {
+                    showToast('Tarefa atribuída com sucesso', 'success');
+                }
+            });
+        });
+    });
+
+    // Exclusão de tarefa
+    document.querySelectorAll('.delete-task').forEach(button => {
+        button.addEventListener('click', function() {
+            if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                const taskId = this.dataset.taskId;
+
+                fetch(`/task/delete/${taskId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('Tarefa excluída com sucesso', 'success');
+                        location.reload();
+                    } else {
+                        showToast('Falha ao excluir a tarefa', 'danger');
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

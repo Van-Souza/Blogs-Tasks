@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Relatórios</h2>
+
+    <!-- Relatório de Tarefas por Status -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Tarefas por Status</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Quantidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for status, count in tasks_by_status %}
+                    <tr>
+                        <td>{{ status | replace('_', ' ') | title }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Relatório de Tarefas por Usuário -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Tarefas por Usuário</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Quantidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for username, count in tasks_by_user %}
+                    <tr>
+                        <td>{{ username }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Relatório de Tarefas por Prioridade -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Tarefas por Prioridade</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Prioridade</th>
+                        <th>Quantidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for priority, count in tasks_by_priority %}
+                    <tr>
+                        <td>
+                            {% if priority == 1 %}Alta
+                            {% elif priority == 2 %}Média
+                            {% else %}Baixa
+                            {% endif %}
+                        </td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Relatório de Tarefas Atrasadas -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Tarefas Atrasadas</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-0">Total de tarefas atrasadas: <strong>{{ overdue_tasks }}</strong></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

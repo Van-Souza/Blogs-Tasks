@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" 
+             style="background: linear-gradient(45deg, #6c757d, #495057); border-radius: 12px 12px 0 0;">
+            <h2 class="mb-0 text-white">
+                <i class="bi bi-archive-fill"></i> Tarefas Arquivadas
+            </h2>
+            <a href="{{ url_for('index') }}" class="btn btn-light">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+        </div>
+        
+        <!-- Filtros -->
+        <div class="card-body border-bottom">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="search" 
+                           placeholder="🔍 Pesquisar tarefas..." value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="status">
+                        <option value="">📊 Todos os status</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>⏳ Pendente</option>
+                        <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>🔄 Em andamento</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>✅ Concluída</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="priority">
+                        <option value="">🎯 Todas as prioridades</option>
+                        <option value="1" {% if priority_filter == 1 %}selected{% endif %}>🔴 Alta</option>
+                        <option value="2" {% if priority_filter == 2 %}selected{% endif %}>🟡 Média</option>
+                        <option value="3" {% if priority_filter == 3 %}selected{% endif %}>🔵 Baixa</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" name="user">
+                        <option value="">👥 Todos os usuários</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if user_filter == user.id %}selected{% endif %}>
+                            👤 {{ user.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-secondary w-100">
+                        <i class="bi bi-search"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Tarefas -->
+    <div class="row">
+        {% for task in tasks.items %}
+        <div class="col-12 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title mb-1">{{ task.title }}</h5>
+                        <button class="btn btn-sm btn-outline-success reactivate-task" 
+                                data-task-id="{{ task.id }}">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reativar
+                        </button>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <i class="bi bi-person-circle"></i> 
+                        {{ task.assignee.username if task.assignee else 'Não atribuído' }}
+                    </p>
+                    <p class="card-text">
+                        <span class="badge {% if task.priority == 1 %}bg-danger
+                                         {% elif task.priority == 2 %}bg-warning
+                                         {% else %}bg-info{% endif %}">
+                            {% if task.priority == 1 %}🔴 Alta
+                            {% elif task.priority == 2 %}🟡 Média
+                            {% else %}🔵 Baixa{% endif %}
+                        </span>
+                        <span class="badge bg-secondary ms-2">{{ task.status | replace('_', ' ') | title }}</span>
+                        {% if task.deadline %}
+                        <span class="text-muted ms-2">
+                            <i class="bi bi-calendar"></i> {{ task.deadline.strftime('%d/%m/%Y') }}
+                        </span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                Nenhuma tarefa arquivada encontrada.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Paginação -->
+    {% if tasks.pages > 1 %}
+    <nav aria-label="Navegação de páginas">
+        <ul class="pagination justify-content-center">
+            {% for page in range(1, tasks.pages + 1) %}
+            <li class="page-item {% if page == tasks.page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('archived_tasks', page=page, status=status_filter, priority=priority_filter, user=user_filter, search=search) }}">
+                    {{ page }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Reativar tarefa
+    document.querySelectorAll('.reactivate-task').forEach(button => {
+        button.addEventListener('click', function() {
+            if (confirm('Tem certeza que deseja reativar esta tarefa?')) {
+                const taskId = this.dataset.taskId;
+
+                fetch(`/task/reactivate/${taskId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Erro ao reativar tarefa');
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

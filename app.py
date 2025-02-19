@@ -384,8 +384,12 @@ def delete_task(task_id):
         return jsonify({'success': False, 'message': 'Não autorizado'}), 403
     
     task = Task.query.get_or_404(task_id)
+    
+    # Apenas desativa a tarefa ao invés de deletar
     task.is_active = False
+    task.updated_at = datetime.now(brasilia_tz)
     db.session.commit()
+    
     return jsonify({'success': True})
 
 # Novas rotas para gerenciamento de usuários
@@ -501,6 +505,57 @@ def reactivate_user(user_id):
 
     user = User.query.get_or_404(user_id)
     user.is_active = True
+    db.session.commit()
+    return jsonify({'success': True})
+
+# Nova rota para tarefas arquivadas
+@app.route('/archived_tasks')
+@login_required
+def archived_tasks():
+    if session.get('role') != 'admin':
+        flash('Acesso negado. Somente administradores podem acessar tarefas arquivadas.', 'danger')
+        return redirect(url_for('index'))
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    query = Task.query.filter_by(is_active=False)
+    
+    # Aplicar filtros
+    status_filter = request.args.get('status')
+    priority_filter = request.args.get('priority', type=int)
+    search = request.args.get('search', '').strip()
+    user_filter = request.args.get('user', type=int)
+    
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    if priority_filter:
+        query = query.filter_by(priority=priority_filter)
+    if search:
+        query = query.filter(Task.title.ilike(f'%{search}%'))
+    if user_filter:
+        query = query.filter_by(assigned_to=user_filter)
+    
+    tasks = query.order_by(Task.updated_at.desc()).paginate(page=page, per_page=per_page)
+    users = User.query.filter_by(is_active=True).all()
+    
+    return render_template('archived_tasks.html', 
+                         tasks=tasks,
+                         users=users,
+                         status_filter=status_filter,
+                         priority_filter=priority_filter,
+                         user_filter=user_filter,
+                         search=search)
+
+# Rota para reativar tarefa
+@app.route('/task/reactivate/<int:task_id>', methods=['POST'])
+@login_required
+def reactivate_task(task_id):
+    if session['role'] != 'admin':
+        return jsonify({'success': False, 'message': 'Não autorizado'}), 403
+    
+    task = Task.query.get_or_404(task_id)
+    task.is_active = True
     db.session.commit()
     return jsonify({'success': True})
 

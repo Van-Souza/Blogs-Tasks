@@ -1,96 +1,400 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">Relatórios</h2>
-
-    <!-- Relatório de Tarefas por Status -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Tarefas por Status</h5>
-        </div>
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Status</th>
-                        <th>Quantidade</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for status, count in tasks_by_status %}
-                    <tr>
-                        <td>{{ status | replace('_', ' ') | title }}</td>
-                        <td>{{ count }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="container-fluid mt-4">
+    <div class="card shadow-lg border-0 rounded-3 mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center" 
+             style="background: linear-gradient(45deg, #4158D0, #C850C0); border-radius: 12px 12px 0 0;">
+            <h2 class="mb-0 text-white">
+                <i class="bi bi-graph-up"></i> Dashboard
+            </h2>
+            <span class="badge bg-white text-primary rounded-pill px-3">
+                Total: {{ tasks_by_status | sum(attribute='1') }} tarefas
+            </span>
         </div>
     </div>
 
-    <!-- Relatório de Tarefas por Usuário -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Tarefas por Usuário</h5>
+    <div class="row g-4">
+        <!-- Relatório de Tarefas por Status -->
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-header bg-gradient text-white d-flex align-items-center"
+                     style="background: linear-gradient(45deg, #FF512F, #DD2476);">
+                    <i class="bi bi-list-check me-2"></i>
+                    <h5 class="mb-0">Status das Tarefas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-hover">
+                            <tbody>
+                                {% for status, count in tasks_by_status %}
+                                <tr class="status-row" data-status="{{ status }}">
+                                    <td>
+                                        <span class="status-dot"></span>
+                                        {{ status | replace('_', ' ') | title }}
+                                    </td>
+                                    <td class="text-end">{{ count }}</td>
+                                    <td class="text-end">
+                                        {{ "%.1f"|format(count / tasks_by_status|sum(attribute='1') * 100) }}%
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Usuário</th>
-                        <th>Quantidade</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for username, count in tasks_by_user %}
-                    <tr>
-                        <td>{{ username }}</td>
-                        <td>{{ count }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
 
-    <!-- Relatório de Tarefas por Prioridade -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Tarefas por Prioridade</h5>
+        <!-- Relatório de Tarefas por Usuário -->
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-header bg-gradient text-white d-flex align-items-center"
+                     style="background: linear-gradient(45deg, #11998e, #38ef7d);">
+                    <i class="bi bi-people-fill me-2"></i>
+                    <h5 class="mb-0">Distribuição por Usuário</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="userChart"></canvas>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-hover">
+                            <tbody>
+                                {% for username, count in tasks_by_user %}
+                                <tr>
+                                    <td>
+                                        <i class="bi bi-person-circle me-2"></i>
+                                        {{ username }}
+                                    </td>
+                                    <td class="text-end">{{ count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Prioridade</th>
-                        <th>Quantidade</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for priority, count in tasks_by_priority %}
-                    <tr>
-                        <td>
-                            {% if priority == 1 %}Alta
-                            {% elif priority == 2 %}Média
-                            {% else %}Baixa
-                            {% endif %}
-                        </td>
-                        <td>{{ count }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
 
-    <!-- Relatório de Tarefas Atrasadas -->
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Tarefas Atrasadas</h5>
+        <!-- Relatório de Tarefas por Prioridade -->
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-header bg-gradient text-white d-flex align-items-center"
+                     style="background: linear-gradient(45deg, #4158D0, #C850C0);">
+                    <i class="bi bi-flag-fill me-2"></i>
+                    <h5 class="mb-0">Prioridades</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="priorityChart"></canvas>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-hover">
+                            <tbody>
+                                {% for priority, count in tasks_by_priority %}
+                                <tr>
+                                    <td>
+                                        <span class="badge {% if priority == 1 %}bg-danger
+                                                         {% elif priority == 2 %}bg-warning
+                                                         {% else %}bg-info{% endif %} me-2">
+                                            {% if priority == 1 %}🔴
+                                            {% elif priority == 2 %}🟡
+                                            {% else %}🔵{% endif %}
+                                        </span>
+                                        {% if priority == 1 %}Alta
+                                        {% elif priority == 2 %}Média
+                                        {% else %}Baixa{% endif %}
+                                    </td>
+                                    <td class="text-end">{{ count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <p class="mb-0">Total de tarefas atrasadas: <strong>{{ overdue_tasks }}</strong></p>
+
+        <!-- Relatório de Tarefas Atrasadas -->
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-header bg-gradient text-white d-flex align-items-center"
+                     style="background: linear-gradient(45deg, #FF416C, #FF4B2B);">
+                    <i class="bi bi-alarm-fill me-2"></i>
+                    <h5 class="mb-0">Tarefas Atrasadas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-center align-items-center" style="height: 200px;">
+                        <div class="text-center">
+                            <h1 class="display-4 mb-0 fw-bold text-danger">{{ overdue_tasks }}</h1>
+                            <p class="text-muted">Tarefas atrasadas</p>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 10px;">
+                        <div class="progress-bar bg-danger" role="progressbar" 
+                             style="width: {{ (overdue_tasks / tasks_by_status|sum(attribute='1') * 100)|round }}%">
+                        </div>
+                    </div>
+                    <p class="text-muted text-center mt-2">
+                        {{ (overdue_tasks / tasks_by_status|sum(attribute='1') * 100)|round }}% do total
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-row[data-status="pending"] .status-dot { background-color: #ffc107; }
+.status-row[data-status="in_progress"] .status-dot { background-color: #0d6efd; }
+.status-row[data-status="completed"] .status-dot { background-color: #198754; }
+
+.progress {
+    border-radius: 10px;
+    background-color: #f8f9fa;
+}
+
+.progress-bar {
+    transition: width 1s ease-in-out;
+}
+
+.badge {
+    padding: 8px 12px;
+}
+
+/* Estilos adicionais para os gráficos */
+canvas {
+    min-height: 300px;
+    margin: 20px 0;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Animação para loading dos gráficos */
+@keyframes chartFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+canvas {
+    animation: chartFadeIn 0.8s ease-out;
+}
+
+.chart-container {
+    position: relative;
+    margin: auto;
+    height: 300px;
+    width: 100%;
+}
+
+.card {
+    height: 100%;
+    margin-bottom: 0;
+}
+
+.table-responsive {
+    margin-top: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    .chart-container {
+        height: 250px;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .table-responsive {
+        max-height: 150px;
+    }
+}
+
+/* Ajuste para telas muito pequenas */
+@media (max-width: 576px) {
+    .chart-container {
+        height: 200px;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    .card-header h5 {
+        font-size: 1rem;
+    }
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuração de cores e estilos comuns
+    const colors = {
+        status: ['#ffc107', '#0d6efd', '#198754'],
+        priority: ['#dc3545', '#ffc107', '#0dcaf0'],
+        user: ['#4158D0', '#C850C0', '#ffcc00', '#00cc88', '#ff6b6b']
+    };
+
+    const defaultOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            tooltip: {
+                padding: 12,
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                titleFont: {
+                    size: 14,
+                    weight: 'bold'
+                },
+                bodyFont: {
+                    size: 13
+                },
+                callbacks: {
+                    label: function(context) {
+                        let label = context.label || '';
+                        let value = context.raw || 0;
+                        let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        let percentage = ((value / total) * 100).toFixed(1);
+                        return `${label}: ${value} (${percentage}%)`;
+                    }
+                }
+            },
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20,
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            title: {
+                display: true,
+                padding: {
+                    top: 10,
+                    bottom: 30
+                },
+                font: {
+                    size: 16,
+                    weight: 'bold'
+                }
+            }
+        }
+    };
+
+    // Gráfico de Status
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: [{% for status, _ in tasks_by_status %}'{{ status | replace('_', ' ') | title }}',{% endfor %}],
+            datasets: [{
+                data: [{% for _, count in tasks_by_status %}{{ count }},{% endfor %}],
+                backgroundColor: colors.status,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            ...defaultOptions,
+            plugins: {
+                ...defaultOptions.plugins,
+                title: {
+                    ...defaultOptions.plugins.title,
+                    text: 'Distribuição de Tarefas por Status'
+                }
+            }
+        }
+    });
+
+    // Gráfico de Usuários
+    new Chart(document.getElementById('userChart'), {
+        type: 'bar',
+        data: {
+            labels: [{% for username, _ in tasks_by_user %}'{{ username }}',{% endfor %}],
+            datasets: [{
+                label: 'Número de Tarefas',
+                data: [{% for _, count in tasks_by_user %}{{ count }},{% endfor %}],
+                backgroundColor: colors.user,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            ...defaultOptions,
+            plugins: {
+                ...defaultOptions.plugins,
+                title: {
+                    ...defaultOptions.plugins.title,
+                    text: 'Tarefas Atribuídas por Usuário'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Quantidade de Tarefas'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Usuários'
+                    }
+                }
+            }
+        }
+    });
+
+    // Gráfico de Prioridades
+    new Chart(document.getElementById('priorityChart'), {
+        type: 'pie',
+        data: {
+            labels: ['Alta Prioridade', 'Média Prioridade', 'Baixa Prioridade'],
+            datasets: [{
+                data: [{% for _, count in tasks_by_priority %}{{ count }},{% endfor %}],
+                backgroundColor: colors.priority,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            ...defaultOptions,
+            plugins: {
+                ...defaultOptions.plugins,
+                title: {
+                    ...defaultOptions.plugins.title,
+                    text: 'Distribuição por Nível de Prioridade'
+                }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

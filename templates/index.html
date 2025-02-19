@@ -2,45 +2,45 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card">
-            <div class="card-body">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-body bg-light">
                 <form method="GET" class="row g-3">
                     <!-- Campo de Pesquisa -->
                     <div class="col-md-3">
-                        <input type="text" class="form-control" name="search" placeholder="Pesquisar tarefas..." value="{{ search }}">
+                        <input type="text" class="form-control border-0 shadow-sm" name="search" placeholder="🔍 Pesquisar tarefas..." value="{{ search }}">
                     </div>
                     <!-- Filtro por Status -->
                     <div class="col-md-2">
-                        <select class="form-select" name="status">
-                            <option value="">Todos os status</option>
-                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pendente</option>
-                            <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>Em andamento</option>
-                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Concluída</option>
+                        <select class="form-select border-0 shadow-sm" name="status">
+                            <option value="">📊 Todos os status</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>⏳ Pendente</option>
+                            <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>🔄 Em andamento</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>✅ Concluída</option>
                         </select>
                     </div>
                     <!-- Filtro por Prioridade -->
                     <div class="col-md-2">
-                        <select class="form-select" name="priority">
-                            <option value="">Todas as prioridades</option>
-                            <option value="1" {% if priority_filter == 1 %}selected{% endif %}>Alta</option>
-                            <option value="2" {% if priority_filter == 2 %}selected{% endif %}>Média</option>
-                            <option value="3" {% if priority_filter == 3 %}selected{% endif %}>Baixa</option>
+                        <select class="form-select border-0 shadow-sm" name="priority">
+                            <option value="">🎯 Todas as prioridades</option>
+                            <option value="1" {% if priority_filter == 1 %}selected{% endif %}>🔴 Alta</option>
+                            <option value="2" {% if priority_filter == 2 %}selected{% endif %}>🟡 Média</option>
+                            <option value="3" {% if priority_filter == 3 %}selected{% endif %}>🔵 Baixa</option>
                         </select>
                     </div>
                     <!-- Filtro por Usuário -->
                     <div class="col-md-3">
-                        <select class="form-select" name="user">
-                            <option value="">Todos os usuários</option>
+                        <select class="form-select border-0 shadow-sm" name="user">
+                            <option value="">👥 Todos os usuários</option>
                             {% for user in users %}
                             <option value="{{ user.id }}" {% if user_filter == user.id %}selected{% endif %}>
-                                {{ user.username }}
+                                👤 {{ user.username }}
                             </option>
                             {% endfor %}
                         </select>
                     </div>
                     <!-- Botão de Filtrar -->
                     <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">
+                        <button type="submit" class="btn btn-primary w-100 shadow-sm">
                             <i class="bi bi-search"></i> Filtrar
                         </button>
                     </div>
@@ -51,14 +51,14 @@
 </div>
 <div class="row">
     <div class="col-md-12">
-        <div class="card">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Tarefas</h5>
-                <span class="badge bg-light text-primary">{{ tasks.total }} tarefas</span>
+        <div class="card shadow border-0 rounded-3">
+            <div class="card-header bg-gradient text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(45deg, #4158D0, #C850C0);">
+                <h5 class="mb-0">📋 Tarefas</h5>
+                <span class="badge bg-white text-primary rounded-pill px-3">{{ tasks.total }} tarefas</span>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover table-striped mb-0">
-                    <thead>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Título</th>
                             <th>Status</th>
@@ -82,14 +82,14 @@
                                 <select class="form-select form-select-sm status-select" 
                                         data-task-id="{{ task.id }}"
                                         {% if session.role != 'admin' and task.assigned_to != session.user_id %}disabled{% endif %}>
-                                    <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pendente</option>
-                                    <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>Em andamento</option>
-                                    <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>Concluída</option>
+                                    <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>⏳ Pendente</option>
+                                    <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>🔄 Em andamento</option>
+                                    <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>✅ Concluída</option>
                                 </select>
                             </td>
                             <td>
                                 <span class="badge {% if task.priority == 1 %}bg-danger{% elif task.priority == 2 %}bg-warning{% else %}bg-info{% endif %}">
-                                    {% if task.priority == 1 %}Alta{% elif task.priority == 2 %}Média{% else %}Baixa{% endif %}
+                                    {% if task.priority == 1 %}🔴 Alta{% elif task.priority == 2 %}🟡 Média{% else %}🔵 Baixa{% endif %}
                                 </span>
                             </td>
                             <td>
@@ -105,7 +105,7 @@
                                     <option value="">Não atribuído</option>
                                     {% for user in users %}
                                     <option value="{{ user.id }}" {% if task.assigned_to == user.id %}selected{% endif %}>
-                                        {{ user.username }}
+                                        👤 {{ user.username }}
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -181,9 +181,9 @@
                     <div class="mb-3">
                         <label class="form-label">Prioridade</label>
                         <select class="form-select" id="taskPriority">
-                            <option value="1">Alta</option>
-                            <option value="2">Média</option>
-                            <option value="3">Baixa</option>
+                            <option value="1">🔴 Alta</option>
+                            <option value="2">🟡 Média</option>
+                            <option value="3">🔵 Baixa</option>
                         </select>
                     </div>
                     {% endif %}
@@ -342,4 +342,72 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<!-- Atualização dos estilos das células de status -->
+<style>
+.status-pending {
+    background-color: #fff3cd !important;
+    transition: background-color 0.3s;
+}
+.status-in-progress {
+    background-color: #cfe2ff !important;
+    transition: background-color 0.3s;
+}
+.status-completed {
+    background-color: #d1e7dd !important;
+    transition: background-color 0.3s;
+}
+
+.btn-group .btn {
+    margin: 0 2px;
+    border-radius: 5px !important;
+    transition: all 0.3s;
+}
+
+.btn-group .btn:hover {
+    transform: translateY(-2px);
+}
+
+.form-select, .form-control {
+    transition: all 0.3s;
+}
+
+.form-select:focus, .form-control:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+}
+
+.card {
+    transition: all 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.pagination .page-link {
+    border-radius: 5px;
+    margin: 0 2px;
+    transition: all 0.3s;
+}
+
+.pagination .page-link:hover {
+    transform: translateY(-2px);
+}
+
+.modal-content {
+    border-radius: 15px;
+    border: none;
+}
+
+.modal-header {
+    background: linear-gradient(45deg, #4158D0, #C850C0);
+    color: white;
+    border-radius: 15px 15px 0 0;
+}
+
+.btn-close {
+    filter: brightness(0) invert(1);
+}
+</style>
 {% endblock %}

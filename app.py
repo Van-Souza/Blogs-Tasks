@@ -37,8 +37,13 @@ db = SQLAlchemy(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='reviewer')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
+    last_login = db.Column(db.DateTime)
+    profile_image = db.Column(db.String(200))
     tasks = db.relationship('Task', backref='assignee', lazy=True)
     comments = db.relationship('TaskComment', backref='user', lazy=True)
 
@@ -113,8 +118,8 @@ def index():
     # Paginar as tarefas
     tasks = query.paginate(page=page, per_page=per_page, error_out=False)
     
-    # Obter lista de usuários para o filtro
-    users = User.query.all()
+    # Obter lista de usuários ativos para o filtro
+    users = User.query.filter_by(is_active=True).all()
     
     return render_template('index.html', 
                          tasks=tasks,
@@ -383,6 +388,122 @@ def delete_task(task_id):
     db.session.commit()
     return jsonify({'success': True})
 
+# Novas rotas para gerenciamento de usuários
+@app.route('/members')
+@login_required
+def members():
+    if session.get('role') != 'admin':
+        flash('Acesso negado. Somente administradores podem acessar.', 'danger')
+        return redirect(url_for('index'))
+    
+    # Busca todos os usuários, incluindo inativos
+    users = User.query.all()
+    return render_template('members.html', users=users)
+
+@app.route('/register', methods=['GET', 'POST'])
+@login_required
+def register():
+    if session.get('role') != 'admin':
+        flash('Acesso negado. Somente administradores podem registrar usuários.', 'danger')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        try:
+            username = request.form.get('username').strip()
+            email = request.form.get('email').strip()
+            password = request.form.get('password')
+            role = request.form.get('role')
+            profile_image = request.form.get('profile_image')
+
+            # Validações
+            if User.query.filter_by(username=username).first():
+                flash('Nome de usuário já existe.', 'danger')
+                return redirect(url_for('register'))
+            
+            if User.query.filter_by(email=email).first():
+                flash('Email já cadastrado.', 'danger')
+                return redirect(url_for('register'))
+
+            new_user = User(
+                username=username,
+                email=email,
+                password=password,  # Em produção, usar hash da senha
+                role=role,
+                profile_image=profile_image
+            )
+
+            db.session.add(new_user)
+            db.session.commit()
+
+            flash('Usuário criado com sucesso!', 'success')
+            return redirect(url_for('members'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao criar usuário: {str(e)}', 'danger')
+            return redirect(url_for('register'))
+
+    return render_template('register.html')
+
+@app.route('/user/update/<int:user_id>', methods=['POST'])
+@login_required
+def update_user(user_id):
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'Não autorizado'}), 403
+
+    user = User.query.get_or_404(user_id)
+    data = request.get_json()
+
+    try:
+        if 'username' in data:
+            user.username = data['username']
+        if 'email' in data:
+            user.email = data['email']
+        if 'role' in data:
+            user.role = data['role']
+        if 'is_active' in data:
+            user.is_active = data['is_active']
+        if 'profile_image' in data:
+            user.profile_image = data['profile_image']
+
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/user/delete/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'Não autorizado'}), 403
+
+    user = User.query.get_or_404(user_id)
+    
+    # Verifica se o usuário tem tarefas associadas
+    active_tasks = Task.query.filter_by(assigned_to=user.id, is_active=True).first()
+    if active_tasks:
+        return jsonify({
+            'success': False, 
+            'message': 'Não é possível desativar um usuário com tarefas ativas associadas'
+        }), 400
+
+    # Desativa o usuário ao invés de deletar
+    user.is_active = False
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/user/reactivate/<int:user_id>', methods=['POST'])
+@login_required
+def reactivate_user(user_id):
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'Não autorizado'}), 403
+
+    user = User.query.get_or_404(user_id)
+    user.is_active = True
+    db.session.commit()
+    return jsonify({'success': True})
+
 # Initialize database
 @app.cli.command('init-db')
 def init_db_command():
@@ -404,21 +525,36 @@ def init_db_command():
 @app.cli.command('reset-db')
 def reset_db_command():
     """Deleta o banco de dados existente e cria um novo."""
-    db.drop_all()  # Deleta todas as tabelas
-    db.create_all()  # Cria todas as tabelas novamente
+    db.drop_all()
+    db.create_all()
 
-    # Adiciona os usuários iniciais
-    if not User.query.filter_by(username='Vandeilson').first():
-        admin = User(username='Vandeilson', password='Van9090@', role='admin')
-        db.session.add(admin)
+    # Adiciona os usuários iniciais com mais informações
+    admin = User(
+        username='Vandeilson',
+        email='admin@example.com',
+        password='Van9090@',
+        role='admin',
+        profile_image='https://ui-avatars.com/api/?name=Vandeilson'
+    )
+    db.session.add(admin)
     
-    if not User.query.filter_by(username='Joao').first():
-        reviewer_joao = User(username='Joao', password='123', role='reviewer')
-        db.session.add(reviewer_joao)
+    joao = User(
+        username='Joao',
+        email='joao@example.com',
+        password='123',
+        role='reviewer',
+        profile_image='https://ui-avatars.com/api/?name=Joao'
+    )
+    db.session.add(joao)
     
-    if not User.query.filter_by(username='Flavia').first():
-        reviewer_flavia = User(username='Flavia', password='123', role='reviewer')
-        db.session.add(reviewer_flavia)
+    flavia = User(
+        username='Flavia',
+        email='flavia@example.com',
+        password='123',
+        role='reviewer',
+        profile_image='https://ui-avatars.com/api/?name=Flavia'
+    )
+    db.session.add(flavia)
     
     db.session.commit()
     print("Banco de dados resetado com sucesso!")

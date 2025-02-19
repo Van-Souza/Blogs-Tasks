@@ -1,42 +1,58 @@
 import os
-from app import app, db
-from app.models import User  # Certifique-se de importar o modelo User corretamente
+from app import db, User
 
 def reset_database():
-    # Caminho para o arquivo do banco de dados
-    db_path = os.path.join(app.instance_path, 'tasks.db')
+    # Caminho do banco de dados
+    db_path = 'instance/tasks.db'
     
-    # Verifica se o arquivo do banco de dados existe
+    # Remove o banco existente se houver
     if os.path.exists(db_path):
-        print(f"Banco de dados encontrado em: {db_path}")
-        print("Apagando banco de dados existente...")
-        os.remove(db_path)  # Remove o arquivo do banco de dados
-        print("Banco de dados apagado com sucesso!")
-    else:
-        print("Nenhum banco de dados encontrado para apagar.")
+        os.remove(db_path)
+        print(f"Banco de dados antigo removido: {db_path}")
 
-    # Cria uma nova instância do banco de dados
-    print("Criando novo banco de dados...")
-    with app.app_context():
-        db.create_all()  # Cria todas as tabelas definidas nos modelos
-        print("Banco de dados criado com sucesso!")
+    # Cria as tabelas
+    db.create_all()
+    print("Novas tabelas criadas")
 
-        # Adiciona dados iniciais
-        print("Adicionando dados iniciais...")
-        if not User.query.filter_by(username='Vandeilson').first():
-            admin = User(username='Vandeilson', password='admin123', role='admin')
-            db.session.add(admin)
-        
-        if not User.query.filter_by(username='Joao').first():
-            reviewer_joao = User(username='Joao', password='reviewer123', role='reviewer')
-            db.session.add(reviewer_joao)
-
-        if not User.query.filter_by(username='Flavia').first():
-            reviewer_flavia = User(username='Flavia', password='reviewer123', role='reviewer')
-            db.session.add(reviewer_flavia)
-
+    # Adiciona os usuários iniciais
+    admin = User(
+        username='Vandeilson',
+        email='admin@example.com',
+        password='Van9090@',
+        role='admin',
+        profile_image='https://ui-avatars.com/api/?name=Vandeilson'
+    )
+    db.session.add(admin)
+    
+    joao = User(
+        username='Joao',
+        email='joao@example.com',
+        password='123',
+        role='reviewer',
+        profile_image='https://ui-avatars.com/api/?name=Joao'
+    )
+    db.session.add(joao)
+    
+    flavia = User(
+        username='Flavia',
+        email='flavia@example.com',
+        password='123',
+        role='reviewer',
+        profile_image='https://ui-avatars.com/api/?name=Flavia'
+    )
+    db.session.add(flavia)
+    
+    try:
         db.session.commit()
-        print("Dados iniciais adicionados com sucesso!")
+        print("Usuários padrão criados com sucesso!")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao criar usuários: {str(e)}")
 
 if __name__ == '__main__':
+    # Cria o diretório instance se não existir
+    if not os.path.exists('instance'):
+        os.makedirs('instance')
+        print("Diretório 'instance' criado")
+    
     reset_database()

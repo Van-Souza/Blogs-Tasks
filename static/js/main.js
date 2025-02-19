@@ -94,3 +94,79 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Código do chat
+document.querySelectorAll('.btn-chat').forEach(button => {
+    button.addEventListener('click', function() {
+        const taskId = this.dataset.taskId;
+        
+        // Marca como lido no servidor
+        fetch(`/task/mark_chat_read/${taskId}`, {
+            method: 'POST'
+        }).then(response => response.json())
+          .then(data => {
+              // Remove o indicador apenas se não houver novas mensagens
+              if (data.success && !data.hasNewMessages) {
+                  const indicator = this.querySelector('.position-absolute');
+                  if (indicator) {
+                      indicator.remove();
+                  }
+              }
+          });
+
+        // Carrega os comentários
+        fetch(`/task/comments/${taskId}`)
+            .then(response => response.json())
+            .then(comments => {
+                const commentsHtml = comments.map(comment => `
+                    <div class="comment mb-2">
+                        <strong>${comment.user}</strong>
+                        <small class="text-muted">${comment.created_at}</small>
+                        <div>${comment.message}</div>
+                    </div>
+                `).join('');
+
+                // Mostra o modal com os comentários
+                const modal = new bootstrap.Modal(document.getElementById('chatModal'));
+                document.getElementById('chatComments').innerHTML = commentsHtml;
+                document.getElementById('commentTaskId').value = taskId;
+                modal.show();
+            });
+    });
+});
+
+// Adicionar novo comentário
+document.getElementById('addComment').addEventListener('click', function() {
+    const taskId = document.getElementById('commentTaskId').value;
+    const message = document.getElementById('commentMessage').value;
+
+    if (!message.trim()) {
+        alert('Por favor, digite uma mensagem');
+        return;
+    }
+
+    fetch(`/task/comment/${taskId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: message })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const comment = data.comment;
+            const commentHtml = `
+                <div class="comment mb-2">
+                    <strong>${comment.user}</strong>
+                    <small class="text-muted">${comment.created_at}</small>
+                    <div>${comment.message}</div>
+                </div>
+            `;
+            document.getElementById('chatComments').insertAdjacentHTML('beforeend', commentHtml);
+            document.getElementById('commentMessage').value = '';
+        } else {
+            alert('Erro ao adicionar comentário');
+        }
+    });
+});

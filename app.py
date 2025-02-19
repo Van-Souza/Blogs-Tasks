@@ -9,6 +9,7 @@ import os
 from functools import wraps
 from pytz import timezone
 from datetime import datetime
+from flask_migrate import Migrate
 
 brasilia_tz = timezone('America/Sao_Paulo')
 
@@ -32,6 +33,7 @@ app.config['SYNC_URLS'] = [
     'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=30&per_page=100',
 ]
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # Models
 class User(db.Model):
@@ -54,6 +56,12 @@ class TaskComment(db.Model):
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
 
+class ChatView(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    last_viewed_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
+
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -66,6 +74,29 @@ class Task(db.Model):
     url = db.Column(db.String(500))
     is_active = db.Column(db.Boolean, default=True)
     comments = db.relationship('TaskComment', backref='task', lazy=True, order_by='TaskComment.created_at')
+    chat_views = db.relationship('ChatView', backref='task', lazy=True)
+
+    def has_new_messages(self, user_id):
+        view = ChatView.query.filter_by(task_id=self.id, user_id=user_id).first()
+        
+        # Se não houver comentários, não há novas mensagens
+        if not self.comments:
+            return False
+            
+        # Se não houver visualização
+        if not view:
+            # Retorna True se houver comentários que não são do usuário atual
+            return any(comment.user_id != user_id for comment in self.comments)
+        
+        # Verifica se há comentários mais recentes que a última visualização
+        # que não são do usuário atual
+        latest_comment = max(
+            (c for c in self.comments if c.user_id != user_id), 
+            key=lambda x: x.created_at,
+            default=None
+        )
+        
+        return latest_comment and latest_comment.created_at > view.last_viewed_at
 
 # Login decorator
 def login_required(f):
@@ -558,6 +589,71 @@ def reactivate_task(task_id):
     task.is_active = True
     db.session.commit()
     return jsonify({'success': True})
+
+@app.route('/task/mark_chat_read/<int:task_id>', methods=['POST'])
+@login_required
+def mark_chat_read(task_id):
+    task = Task.query.get_or_404(task_id)
+    
+    view = ChatView.query.filter_by(task_id=task_id, user_id=session['user_id']).first()
+    if view:
+        view.last_viewed_at = datetime.now(brasilia_tz)
+    else:
+        view = ChatView(task_id=task_id, user_id=session['user_id'])
+        db.session.add(view)
+    
+    db.session.commit()
+    
+    # Verifica se ainda há mensagens não lidas após marcar como lido
+    return jsonify({
+        'success': True,
+        'hasNewMessages': task.has_new_messages(session['user_id'])
+    })
+
+@app.route('/task/comment/<int:task_id>', methods=['POST'])
+@login_required
+def add_comment(task_id):
+    task = Task.query.get_or_404(task_id)
+    message = request.json.get('message')
+    
+    if not message:
+        return jsonify({'success': False, 'message': 'Mensagem vazia'}), 400
+
+    comment = TaskComment(
+        task_id=task_id,
+        user_id=session['user_id'],
+        message=message
+    )
+    
+    # Remove a visualização apenas do destinatário da tarefa
+    # e dos admins (exceto o autor se for admin)
+    if task.assigned_to and task.assigned_to != session['user_id']:
+        ChatView.query.filter_by(
+            task_id=task_id, 
+            user_id=task.assigned_to
+        ).delete()
+    
+    # Remove visualização dos admins (exceto o autor)
+    admins = User.query.filter_by(role='admin').all()
+    for admin in admins:
+        if admin.id != session['user_id']:
+            ChatView.query.filter_by(
+                task_id=task_id,
+                user_id=admin.id
+            ).delete()
+    
+    db.session.add(comment)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'comment': {
+            'id': comment.id,
+            'user': comment.user.username,
+            'message': comment.message,
+            'created_at': comment.created_at.strftime('%d/%m/%Y %H:%M')
+        }
+    })
 
 # Initialize database
 @app.cli.command('init-db')

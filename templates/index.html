@@ -115,8 +115,14 @@
                             </td>
                             <td>
                                 <div class="btn-group">
-                                    <button type="button" class="btn btn-sm btn-outline-primary btn-chat" data-task-id="{{ task.id }}">
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-chat position-relative" 
+                                            data-task-id="{{ task.id }}">
                                         <i class="bi bi-chat"></i> Chat
+                                        {% if task.has_new_messages(session.user_id) %}
+                                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                                            <span class="visually-hidden">Nova mensagem</span>
+                                        </span>
+                                        {% endif %}
                                     </button>
                                     <button type="button" class="btn btn-sm btn-outline-primary" 
                                             data-bs-toggle="modal" data-bs-target="#taskModal"

@@ -658,57 +658,27 @@ def add_comment(task_id):
 # Initialize database
 @app.cli.command('init-db')
 def init_db_command():
+    """Inicializa o banco de dados com usuário master."""
     db.create_all()
     
-    if not User.query.filter_by(username='Vandeilson').first():
-        admin = User(username='Vandeilson', password='admin123', role='admin')
-        db.session.add(admin)
-    
-    if not User.query.filter_by(username='Joao').first():
-        reviewer_joao = User(username='Joao', password='reviewer123', role='reviewer')
-        db.session.add(reviewer_joao)
-    
-    if not User.query.filter_by(username='Flavia').first():
-        reviewer_flavia = User(username='Flavia', password='reviewer123', role='reviewer')
-        db.session.add(reviewer_flavia)
-    
-    db.session.commit()
-@app.cli.command('reset-db')
-def reset_db_command():
-    """Deleta o banco de dados existente e cria um novo."""
-    db.drop_all()
-    db.create_all()
+    # Verifica se já existe algum usuário
+    if User.query.first() is None:
+        master = User(
+            username='admin',
+            email='admin@sistema.com',
+            password='admin',
+            role='admin',
+            is_active=True,
+            created_at=datetime.now(brasilia_tz),
+            profile_image='https://ui-avatars.com/api/?name=Admin'
+        )
+        db.session.add(master)
+        db.session.commit()
+        print("Usuário master criado com sucesso!")
+    else:
+        print("Banco de dados já inicializado.")
 
-    # Adiciona os usuários iniciais com mais informações
-    admin = User(
-        username='Vandeilson',
-        email='admin@example.com',
-        password='Van9090@',
-        role='admin',
-        profile_image='https://ui-avatars.com/api/?name=Vandeilson'
-    )
-    db.session.add(admin)
-    
-    joao = User(
-        username='Joao',
-        email='joao@example.com',
-        password='123',
-        role='reviewer',
-        profile_image='https://ui-avatars.com/api/?name=Joao'
-    )
-    db.session.add(joao)
-    
-    flavia = User(
-        username='Flavia',
-        email='flavia@example.com',
-        password='123',
-        role='reviewer',
-        profile_image='https://ui-avatars.com/api/?name=Flavia'
-    )
-    db.session.add(flavia)
-    
-    db.session.commit()
-    print("Banco de dados resetado com sucesso!")
+# Remover ou comentar o comando reset-db se não for necessário
 
 if __name__ == '__main__':
     app.run(debug=True)

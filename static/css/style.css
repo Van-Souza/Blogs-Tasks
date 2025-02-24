@@ -1,14 +1,14 @@
 /* Custom Variables */
 :root {
-    --primary-color: #005ae2;
-    --secondary-color: #6c757d;
+    --primary-color: #4158D0;
+    --secondary-color: #C850C0;
     --success-color: #198754;
     --danger-color: #dc3545;
     --warning-color: #ffc107;
     --info-color: #0dcaf0;
     --light-color: #f8f9fa;
     --dark-color: #343a40;
-    --border-radius: 8px;
+    --border-radius: 15px;
     --transition-speed: 0.3s;
 }
 
@@ -37,17 +37,33 @@ main {
     color: var(--primary-color);
 }
 
-/* Card Styles */
+/* Dark Mode */
+.dark-mode {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+.dark-mode .card {
+    background-color: #2d2d2d;
+    border-color: #404040;
+}
+
+.dark-mode .table {
+    color: #ffffff;
+}
+
+/* Cards */
 .card {
     border: none;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    transition: transform var(--transition-speed) ease-in-out, box-shadow var(--transition-speed) ease-in-out;
     border-radius: var(--border-radius);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
 }
 
 .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
 .card-header {
@@ -62,16 +78,36 @@ main {
     border-radius: 0 0 var(--border-radius) var(--border-radius);
 }
 
+.stats-card {
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    height: 100%;
+}
+
+.stats-card .icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.stats-card .number {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
 /* Table Styles */
 .table {
     margin-bottom: 0;
     border-collapse: separate;
     border-spacing: 0;
+    border-radius: var(--border-radius);
+    overflow: hidden;
 }
 
 .table th {
     border-top: none;
-    background-color: var(--light-color);
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
     font-weight: 600;
     padding: 12px;
 }
@@ -93,13 +129,19 @@ main {
 .form-control:focus,
 .form-select:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    box-shadow: 0 0 0 0.25rem rgba(65, 88, 208, 0.25);
 }
 
 /* Buttons */
 .btn {
     border-radius: var(--border-radius);
-    transition: all var(--transition-speed) ease-in-out;
+    padding: 0.5rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary {
@@ -147,14 +189,40 @@ main {
     background-color: var(--info-color);
 }
 
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.status-badge:hover {
+    transform: scale(1.1);
+}
+
 /* Animations */
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
 
+@keyframes slideIn {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 .fade-in {
     animation: fadeIn var(--transition-speed) ease-in;
+}
+
+.alert {
+    animation: slideIn 0.5s ease;
 }
 
 /* Modal Styles */
@@ -233,7 +301,29 @@ main {
     .navbar-brand i {
         font-size: 1rem;
     }
+
+    .card-stats {
+        margin-bottom: 15px;
+    }
+    
+    .table-responsive {
+        font-size: 14px;
+    }
+    
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        margin: 2px 0;
+    }
+
+    .stats-card {
+        margin-bottom: 1rem;
+    }
 }
+
 /* Estilos para o chat */
 #chatHistory {
     background-color: var(--light-color);
@@ -275,4 +365,91 @@ main {
 
 #chatHistory .d-flex.justify-content-start .rounded {
     border-radius: var(--border-radius) var(--border-radius) var(--border-radius) 0;
+}
+
+/* Form Improvements */
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+    color: var(--primary-color);
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+/* Chat Styles */
+.chat-container {
+    height: 500px;
+    background: #f8f9fa;
+    border-radius: var(--border-radius);
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.chat-messages {
+    height: calc(100% - 70px);
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.chat-message {
+    margin: 10px;
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 80%;
+    animation: fadeIn 0.3s ease;
+}
+
+.chat-message.sent {
+    background: var(--primary-color);
+    color: white;
+    margin-left: auto;
+}
+
+.chat-message.received {
+    background: white;
+    margin-right: auto;
+}
+
+.chat-input-container {
+    padding: 1rem;
+    background: white;
+    border-top: 1px solid #eee;
+}
+
+.chat-input {
+    border-radius: 25px;
+    padding: 10px 20px;
+    border: 2px solid #eee;
+}
+
+/* Breadcrumbs */
+.breadcrumb {
+    background: transparent;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius);
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "›";
+}
+
+/* Task Row */
+.task-row {
+    transition: background-color 0.3s ease;
+}
+
+.task-row:hover {
+    background-color: rgba(65, 88, 208, 0.05);
 }

@@ -1,59 +1,46 @@
 {% extends "base.html" %}
 {% block content %}
 <!-- Cards de Estatísticas -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <a href="{{ url_for('index') }}" class="text-decoration-none">
-            <div class="stats-card bg-gradient-primary text-white">
-                <div class="stats-icon">
-                    <i class="bi bi-list-task"></i>
-                </div>
-                <div class="stats-info">
-                    <h3 id="total-tasks">{{ Task.query.filter_by(is_active=True).count() }}</h3>
-                    <p>Total de Tarefas</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <div class="col-md-3">
-        <a href="{{ url_for('index', status='completed') }}" class="text-decoration-none">
-            <div class="stats-card bg-gradient-success text-white">
-                <div class="stats-icon">
-                    <i class="bi bi-check-circle"></i>
-                </div>
-                <div class="stats-info">
-                    <h3 id="completed-tasks">{{ Task.query.filter_by(is_active=True, status='completed').count() }}</h3>
-                    <p>Concluídas</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <div class="col-md-3">
-        <a href="{{ url_for('index', status='in_progress') }}" class="text-decoration-none">
-            <div class="stats-card bg-gradient-warning text-white">
-                <div class="stats-icon">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <div class="stats-info">
-                    <h3 id="in-progress-tasks">{{ Task.query.filter_by(is_active=True, status='in_progress').count() }}</h3>
-                    <p>Em Progresso</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <div class="col-md-3">
-        <a href="{{ url_for('index', status='pending') }}" class="text-decoration-none">
-            <div class="stats-card bg-gradient-danger text-white">
-                <div class="stats-icon">
-                    <i class="bi bi-exclamation-circle"></i>
-                </div>
-                <div class="stats-info">
-                    <h3 id="pending-tasks">{{ Task.query.filter_by(is_active=True, status='pending').count() }}</h3>
-                    <p>Pendentes</p>
-                </div>
-            </div>
-        </a>
-    </div>
+<div class="stats-container mb-4">
+    <a href="{{ url_for('index') }}" class="stats-card">
+        <div class="stats-icon">
+            <i class="bi bi-kanban"></i>
+        </div>
+        <div class="stats-info">
+            <h3 id="total-tasks">{{ Task.query.filter_by(is_active=True).count() }}</h3>
+            <p>Total</p>
+        </div>
+    </a>
+
+    <a href="{{ url_for('index', status='in_progress') }}" class="stats-card">
+        <div class="stats-icon warning">
+            <i class="bi bi-clock-history"></i>
+        </div>
+        <div class="stats-info">
+            <h3 id="in-progress-tasks">{{ Task.query.filter_by(is_active=True, status='in_progress').count() }}</h3>
+            <p>Em Progresso</p>
+        </div>
+    </a>
+
+    <a href="{{ url_for('index', status='waiting_approval') }}" class="stats-card">
+        <div class="stats-icon info">
+            <i class="bi bi-hourglass-split"></i>
+        </div>
+        <div class="stats-info">
+            <h3 id="waiting-approval-tasks">{{ Task.query.filter_by(is_active=True, status='waiting_approval').count() }}</h3>
+            <p>Aguardando Revisão</p>
+        </div>
+    </a>
+
+    <a href="{{ url_for('index', status='completed') }}" class="stats-card">
+        <div class="stats-icon success">
+            <i class="bi bi-check-circle"></i>
+        </div>
+        <div class="stats-info">
+            <h3 id="completed-tasks">{{ Task.query.filter_by(is_active=True, status='completed').count() }}</h3>
+            <p>Concluídas</p>
+        </div>
+    </a>
 </div>
 
 <!-- Filtros -->
@@ -78,6 +65,9 @@
                     </option>
                     <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>
                         🔄 Em andamento
+                    </option>
+                    <option value="waiting_approval" {% if status_filter == 'waiting_approval' %}selected{% endif %}>
+                        ⌛ Aguardando Revisão
                     </option>
                     <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>
                         ✅ Concluída
@@ -121,10 +111,18 @@
 <div class="card shadow-lg border-0">
     <div class="card-header d-flex justify-content-between align-items-center"
          style="background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));">
-        <h5 class="mb-0 text-white">
-            <i class="bi bi-list-check"></i> Tarefas
-        </h5>
-        <span class="badge bg-white text-primary">{{ tasks.total }} tarefas</span>
+        <div class="d-flex align-items-center gap-2">
+            <h5 class="mb-0 text-white d-flex align-items-center gap-2">
+                <i class="bi bi-list-check"></i> 
+                Tarefas
+                <span class="badge bg-white text-primary">{{ tasks.total }}</span>
+            </h5>
+        </div>
+        {% if session.role == 'admin' %}
+        <a href="{{ url_for('create_task') }}" class="btn btn-light btn-sm">
+            <i class="bi bi-plus-lg"></i> Nova Tarefa
+        </a>
+        {% endif %}
     </div>
     
     <div class="table-responsive">
@@ -136,7 +134,7 @@
                     <th>Prioridade</th>
                     <th>Prazo</th>
                     <th>Responsável</th>
-                    <th>Ações</th>
+                    <th style="width: 120px">Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -147,6 +145,8 @@
                             <div class="task-icon me-2">
                                 {% if task.status == 'completed' %}
                                     <i class="bi bi-check-circle-fill text-success"></i>
+                                {% elif task.status == 'waiting_approval' %}
+                                    <i class="bi bi-hourglass-split text-info"></i>
                                 {% elif task.status == 'in_progress' %}
                                     <i class="bi bi-clock-fill text-warning"></i>
                                 {% else %}
@@ -164,20 +164,53 @@
                         </div>
                     </td>
                     <td>
-                        <select class="form-select form-select-sm status-select" 
-                                data-task-id="{{ task.id }}"
-                                data-original-status="{{ task.status }}"
-                                {% if session.role != 'admin' and task.assigned_to != session.user_id %}disabled{% endif %}>
-                            <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>
-                                ⏳ Pendente
-                            </option>
-                            <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>
-                                🔄 Em andamento
-                            </option>
-                            <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>
-                                ✅ Concluída
-                            </option>
-                        </select>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if task.status == 'pending' %}
+                                <span class="badge bg-secondary">⏳ Pendente</span>
+                                {% if task.assigned_to == session.user_id %}
+                                    <button class="btn btn-sm btn-outline-warning" 
+                                            onclick="updateTaskStatus({{ task.id }}, 'in_progress')"
+                                            title="Iniciar trabalho na tarefa">
+                                        <i class="bi bi-play-fill"></i> Iniciar
+                                    </button>
+                                {% endif %}
+                            
+                            {% elif task.status == 'in_progress' %}
+                                <span class="badge bg-warning">🔄 Em Andamento</span>
+                                {% if task.assigned_to == session.user_id %}
+                                    <button class="btn btn-sm btn-outline-info" 
+                                            onclick="updateTaskStatus({{ task.id }}, 'waiting_approval')"
+                                            title="Enviar para revisão">
+                                        <i class="bi bi-send"></i> Enviar para Revisão
+                                    </button>
+                                {% endif %}
+                            
+                            {% elif task.status == 'waiting_approval' %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-info">⌛ Aguardando Revisão</span>
+                                    {% if session.role == 'admin' %}
+                                        <div class="approval-actions">
+                                            <button class="btn btn-sm btn-outline-success" 
+                                                    onclick="updateTaskStatus({{ task.id }}, 'completed')"
+                                                    title="Aprovar tarefa">
+                                                <i class="bi bi-check-lg"></i> Aprovar
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    onclick="updateTaskStatus({{ task.id }}, 'in_progress')"
+                                                    title="Retornar para revisão">
+                                                <i class="bi bi-arrow-return-left"></i> Retornar
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            
+                            {% elif task.status == 'completed' %}
+                                <span class="badge bg-success">✅ Concluída</span>
+                                <small class="text-muted">
+                                    (Volta para pendente em {{ task.auto_pending_days }} dias)
+                                </small>
+                            {% endif %}
+                        </div>
                     </td>
                     <td>
                         <span class="priority-badge {% if task.priority == 1 %}high
@@ -300,6 +333,21 @@
                             <option value="3">🔵 Baixa</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dias até voltar para pendente</label>
+                        <div class="input-group">
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="taskAutoPendingDays" 
+                                   min="1" 
+                                   max="365"
+                                   placeholder="30">
+                            <span class="input-group-text">dias</span>
+                        </div>
+                        <small class="text-muted">
+                            Após este período, tarefas concluídas voltarão automaticamente para pendente
+                        </small>
+                    </div>
                     {% endif %}
                 </form>
             </div>
@@ -395,6 +443,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const taskIcon = this.closest('tr').querySelector('.task-icon i');
                     if (taskIcon) {
                         taskIcon.className = newStatus === 'completed' ? 'bi bi-check-circle-fill text-success' :
+                                           newStatus === 'waiting_approval' ? 'bi bi-hourglass-split text-info' :
                                            newStatus === 'in_progress' ? 'bi bi-clock-fill text-warning' :
                                            'bi bi-circle text-muted';
                     }
@@ -470,7 +519,7 @@ function updateStats() {
             animateNumber('total-tasks', data.total);
             animateNumber('completed-tasks', data.completed);
             animateNumber('in-progress-tasks', data.in_progress);
-            animateNumber('pending-tasks', data.pending);
+            animateNumber('waiting-approval-tasks', data.waiting_approval);
         })
         .catch(error => {
             console.error('Erro ao atualizar estatísticas:', error);
@@ -505,51 +554,112 @@ setInterval(updateStats, 30000);
 
 // Atualizar na carga inicial
 document.addEventListener('DOMContentLoaded', updateStats);
+
+function updateTaskStatus(taskId, newStatus) {
+    fetch(`/task/update/${taskId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateStats();
+            showToast('Status atualizado com sucesso', 'success');
+            location.reload();
+        } else {
+            showToast(data.message || 'Falha ao atualizar status', 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('Erro ao atualizar status', 'danger');
+    });
+}
 </script>
 
 <!-- Atualização dos estilos das células de status -->
 <style>
 /* Cards de Estatísticas */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
 .stats-card {
-    padding: 1.5rem;
-    border-radius: var(--border-radius);
-    margin-bottom: 1rem;
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-decoration: none;
+    color: inherit;
     transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.1);
 }
 
 .stats-card:hover {
-    transform: translateY(-5px);
-}
-
-.bg-gradient-primary {
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-}
-
-.bg-gradient-success {
-    background: linear-gradient(45deg, #2ecc71, #27ae60);
-}
-
-.bg-gradient-warning {
-    background: linear-gradient(45deg, #f1c40f, #f39c12);
-}
-
-.bg-gradient-danger {
-    background: linear-gradient(45deg, #e74c3c, #c0392b);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .stats-icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    color: white;
+}
+
+.stats-icon i {
+    font-size: 1.5rem;
+}
+
+.stats-icon.warning {
+    background: #f1c40f;
+}
+
+.stats-icon.info {
+    background: #3498db;
+}
+
+.stats-icon.success {
+    background: #2ecc71;
+}
+
+.stats-info {
+    flex: 1;
 }
 
 .stats-info h3 {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+    margin: 0;
+    font-weight: 600;
 }
 
 .stats-info p {
     margin: 0;
-    opacity: 0.8;
+    color: #666;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-container {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Search Box */
@@ -660,6 +770,97 @@ document.addEventListener('DOMContentLoaded', updateStats);
     .action-buttons .btn {
         width: 100%;
     }
+}
+
+/* Approval Actions */
+.approval-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: 0.5rem;
+}
+
+.approval-actions .btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.approval-actions .btn i {
+    font-size: 1rem;
+}
+
+.approval-actions .btn-outline-success:hover {
+    background-color: #28a745;
+    color: white;
+}
+
+.approval-actions .btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Status Actions */
+.btn-outline-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn-outline-info {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn-outline-warning:hover {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.btn-outline-info:hover {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn i {
+    font-size: 1rem;
+}
+
+/* Badge Styles */
+.badge {
+    padding: 0.5em 0.8em;
+    font-weight: 500;
+}
+
+/* Estilos do cabeçalho da tabela */
+.card-header {
+    padding: 1rem;
+}
+
+.card-header h5 {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.card-header .badge {
+    font-size: 0.9rem;
+    padding: 0.35em 0.65em;
+}
+
+.table thead th {
+    font-weight: 500;
+    color: #6c757d;
+    border-top: none;
+    background-color: #f8f9fa;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
 }
 </style>
 {% endblock %}

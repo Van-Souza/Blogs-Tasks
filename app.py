@@ -10,6 +10,7 @@ from functools import wraps
 from pytz import timezone
 from datetime import datetime
 from flask_migrate import Migrate
+from apscheduler.schedulers.background import BackgroundScheduler
 
 brasilia_tz = timezone('America/Sao_Paulo')
 
@@ -65,11 +66,18 @@ class ChatView(db.Model):
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
+    STATUS_PENDING = 'pending'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_WAITING_APPROVAL = 'waiting_approval'
+    STATUS_COMPLETED = 'completed'
+    
     status = db.Column(db.String(20), default='pending')
+    completion_date = db.Column(db.DateTime)  # Data quando foi marcada como concluída
+    auto_pending_days = db.Column(db.Integer, default=30)  # Dias até voltar para pendente
     priority = db.Column(db.Integer, default=3)
     deadline = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz), onupdate=lambda: datetime.now(brasilia_tz))
     assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'))
     url = db.Column(db.String(500))
     is_active = db.Column(db.Boolean, default=True)
@@ -138,12 +146,12 @@ def index():
     # Ordenação personalizada
     query = query.order_by(
         case(
-            (Task.assigned_to == session['user_id'], 0),  # Tarefas do usuário logado primeiro
+            (Task.assigned_to == session['user_id'], 0),
             else_=1
         ),
-        Task.status == 'completed',  # Tarefas concluídas no final
-        Task.priority.asc(),  # Prioridade ascendente
-        Task.deadline.asc()   # Prazo ascendente
+        Task.status == 'completed',
+        Task.priority.asc(),
+        Task.deadline.asc()
     )
     
     # Paginar as tarefas
@@ -152,13 +160,25 @@ def index():
     # Obter lista de usuários ativos para o filtro
     users = User.query.filter_by(is_active=True).all()
     
+    # Garantir que a data atual tenha fuso horário
+    current_time = datetime.now(brasilia_tz)
+    
+    # Converter os deadlines para terem fuso horário
+    for task in tasks.items:
+        if task.deadline:
+            # Se o deadline não tiver fuso horário, adiciona
+            if task.deadline.tzinfo is None:
+                task.deadline = brasilia_tz.localize(task.deadline)
+    
     return render_template('index.html', 
                          tasks=tasks,
                          users=users,
+                         Task=Task,
                          status_filter=status_filter,
                          priority_filter=priority_filter,
                          user_filter=user_filter,
-                         search=search)
+                         search=search,
+                         now=current_time)
 
 # Restante do código...
 
@@ -187,49 +207,58 @@ def logout():
 @login_required
 def update_task(task_id):
     task = Task.query.get_or_404(task_id)
-    
-    if request.is_json:
-        data = request.get_json()
+    data = request.json
+
+    if 'assigned_to' in data:
+        old_assigned = task.assigned_to
+        task.assigned_to = data['assigned_to'] or None
         
-        if session['role'] == 'admin' or task.assigned_to == session['user_id']:
-            try:
-                if 'status' in data:
-                    task.status = data['status']
-                
-                if 'priority' in data and session['role'] == 'admin':
-                    task.priority = data['priority']
-                
-                if 'deadline' in data and session['role'] == 'admin':
-                    if data['deadline']:
-                        try:
-                            task.deadline = datetime.fromisoformat(data['deadline'])
-                        except ValueError:
-                            return jsonify({'success': False, 'message': 'Formato de data inválido'}), 400
-                    else:
-                        task.deadline = None
-                
-                if 'message' in data and data['message'].strip():
-                    new_comment = TaskComment(
-                        task_id=task.id,
-                        user_id=session['user_id'],
-                        message=data['message'].strip()
-                    )
-                    db.session.add(new_comment)
-                
-                if 'assigned_to' in data and session['role'] == 'admin':
-                    task.assigned_to = data['assigned_to']
-                
-                db.session.commit()
-                return jsonify({'success': True})
+        # Se atribuir a alguém, muda para "em andamento"
+        if task.assigned_to and not old_assigned:
+            task.status = Task.STATUS_IN_PROGRESS
+        # Se desatribuir, volta para "pendente"
+        elif not task.assigned_to and old_assigned:
+            task.status = Task.STATUS_PENDING
+
+    if 'status' in data:
+        # Apenas admin pode aprovar tarefas
+        if data['status'] == Task.STATUS_COMPLETED and session['role'] != 'admin':
+            return jsonify({'success': False, 'message': 'Apenas administradores podem aprovar tarefas'})
+        
+        # Usuário só pode solicitar aprovação
+        if session['role'] != 'admin' and data['status'] == Task.STATUS_COMPLETED:
+            task.status = Task.STATUS_WAITING_APPROVAL
+        else:
+            task.status = data['status']
             
-            except Exception as e:
-                db.session.rollback()
-                app.logger.error(f'Erro ao atualizar tarefa: {str(e)}')
-                return jsonify({'success': False, 'message': 'Erro interno'}), 500
-        
-        return jsonify({'success': False, 'message': 'Acesso não autorizado'}), 403
+            # Se aprovada, registra a data e remove o usuário
+            if data['status'] == Task.STATUS_COMPLETED:
+                task.completion_date = datetime.now(brasilia_tz)
+                task.assigned_to = None
+
+    if 'priority' in data and session['role'] == 'admin':
+        task.priority = data['priority']
     
-    return jsonify({'success': False, 'message': 'Requisição inválida'}), 400
+    if 'deadline' in data and session['role'] == 'admin':
+        if data['deadline']:
+            try:
+                task.deadline = datetime.fromisoformat(data['deadline'])
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Formato de data inválido'}), 400
+        else:
+            task.deadline = None
+    
+    if 'message' in data and data['message'].strip():
+        new_comment = TaskComment(
+            task_id=task.id,
+            user_id=session['user_id'],
+            message=data['message'].strip()
+        )
+        db.session.add(new_comment)
+    
+    db.session.commit()
+    return jsonify({'success': True})
+
 @app.route('/task/<int:task_id>/chat')
 @login_required
 def task_chat(task_id):
@@ -287,7 +316,7 @@ def create_task():
 
             db.session.add(new_task)
             db.session.commit()
-
+            
             flash('Tarefa criada com sucesso!', 'success')
             return redirect(url_for('index'))
 
@@ -654,6 +683,51 @@ def add_comment(task_id):
             'created_at': comment.created_at.strftime('%d/%m/%Y %H:%M')
         }
     })
+
+@app.route('/api/stats')
+@login_required
+def get_stats():
+    query = Task.query.filter_by(is_active=True)
+    
+    # Se não for admin, filtrar apenas tarefas do usuário
+    if session.get('role') != 'admin':
+        query = query.filter_by(assigned_to=session['user_id'])
+    
+    # Contar total de cada status sem paginação
+    total = query.count()
+    completed = query.filter_by(status='completed').count()
+    in_progress = query.filter_by(status='in_progress').count()
+    waiting_approval = query.filter_by(status='waiting_approval').count()
+    
+    return jsonify({
+        'total': total,
+        'completed': completed,
+        'in_progress': in_progress,
+        'waiting_approval': waiting_approval
+    })
+
+# Tarefa para verificar tarefas concluídas antigas
+def check_completed_tasks():
+    with app.app_context():
+        tasks = Task.query.filter_by(
+            status=Task.STATUS_COMPLETED,
+            is_active=True
+        ).all()
+        
+        now = datetime.now(brasilia_tz)
+        for task in tasks:
+            if task.completion_date:
+                days_passed = (now - task.completion_date).days
+                if days_passed >= task.auto_pending_days:
+                    task.status = Task.STATUS_PENDING
+                    task.completion_date = None
+        
+        db.session.commit()
+
+# Agendar verificação diária
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=check_completed_tasks, trigger="interval", days=1)
+scheduler.start()
 
 # Initialize database
 @app.cli.command('init-db')

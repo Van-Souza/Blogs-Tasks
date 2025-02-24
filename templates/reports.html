@@ -148,6 +148,74 @@
             </div>
         </div>
     </div>
+
+    <!-- Após a tabela de Top Usuários -->
+    <div class="col-12 mt-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0">Mapeamento Detalhado</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for user in user_stats %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="user-stats-card p-3 border rounded">
+                            <div class="d-flex align-items-center mb-3">
+                                <img src="{{ user.profile_image }}" 
+                                     class="rounded-circle me-2" 
+                                     width="40" 
+                                     height="40">
+                                <h6 class="mb-0">{{ user.username }}</h6>
+                            </div>
+                            
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <small class="text-muted">Pendentes</small>
+                                    <h4 class="mb-0">{{ user.tasks_by_status.pending }}</h4>
+                                </div>
+                                <div class="stat-item">
+                                    <small class="text-muted">Em Progresso</small>
+                                    <h4 class="mb-0">{{ user.tasks_by_status.in_progress }}</h4>
+                                </div>
+                                <div class="stat-item">
+                                    <small class="text-muted">Aguardando</small>
+                                    <h4 class="mb-0">{{ user.tasks_by_status.waiting_approval }}</h4>
+                                </div>
+                                <div class="stat-item">
+                                    <small class="text-muted">Concluídas</small>
+                                    <h4 class="mb-0">{{ user.tasks_by_status.completed }}</h4>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>Taxa de Conclusão</small>
+                                    <small>{{ user.completion_rate }}%</small>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ user.completion_rate }}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 text-muted">
+                                <small>
+                                    <i class="bi bi-clock"></i>
+                                    Tempo Médio: {{ user.avg_completion_time }} dias
+                                </small>
+                                <br>
+                                <small>
+                                    <i class="bi bi-calendar"></i>
+                                    Última Atividade: {{ user.last_activity.strftime('%d/%m/%Y %H:%M') }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -181,6 +249,34 @@
 .progress-bar {
     background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
     border-radius: 10px;
+}
+
+.user-stats-card {
+    background: white;
+    transition: transform 0.2s;
+}
+
+.user-stats-card:hover {
+    transform: translateY(-5px);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.stat-item h4 {
+    color: var(--primary-color);
+    font-weight: 600;
 }
 </style>
 

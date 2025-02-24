@@ -59,6 +59,7 @@ class TaskComment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
+    is_system_message = db.Column(db.Boolean, default=False)
 
 class ChatView(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -212,54 +213,92 @@ def update_task(task_id):
     task = Task.query.get_or_404(task_id)
     data = request.json
 
-    if 'assigned_to' in data:
+    # Criar mensagem de log
+    log_message = None
+
+    if 'status' in data:
+        old_status = task.status
+        
+        # Log de mudança de status
+        if data['status'] == Task.STATUS_IN_PROGRESS and old_status == Task.STATUS_PENDING:
+            log_message = "▶️ Tarefa iniciada"
+        elif data['status'] == Task.STATUS_WAITING_APPROVAL:
+            log_message = "⏳ Enviada para revisão"
+        elif data['status'] == Task.STATUS_COMPLETED:
+            # Guardar o usuário que estava atribuído para o log
+            old_user = User.query.get(task.assigned_to) if task.assigned_to else None
+            
+            # Remover atribuição quando concluir
+            task.assigned_to = None
+            log_message = f"✅ Tarefa concluída por {old_user.username if old_user else 'Sistema'}"
+        elif data['status'] == Task.STATUS_IN_PROGRESS and old_status == Task.STATUS_WAITING_APPROVAL:
+            log_message = "⏮️ Tarefa retornada para revisão"
+        elif data['status'] == Task.STATUS_PENDING and old_status == Task.STATUS_COMPLETED:
+            log_message = "🔄 Tarefa voltou para pendente automaticamente"
+        
+        task.status = data['status']
+        if data['status'] == Task.STATUS_COMPLETED:
+            task.completion_date = datetime.now(brasilia_tz)
+
+    elif 'assigned_to' in data:
         old_assigned = task.assigned_to
         task.assigned_to = data['assigned_to'] or None
         
-        # Se atribuir a alguém, muda para "em andamento"
-        if task.assigned_to and not old_assigned:
-            task.status = Task.STATUS_IN_PROGRESS
-        # Se desatribuir, volta para "pendente"
-        elif not task.assigned_to and old_assigned:
-            task.status = Task.STATUS_PENDING
-
-    if 'status' in data:
-        # Apenas admin pode aprovar tarefas
-        if data['status'] == Task.STATUS_COMPLETED and session['role'] != 'admin':
-            return jsonify({'success': False, 'message': 'Apenas administradores podem aprovar tarefas'})
-        
-        # Usuário só pode solicitar aprovação
-        if session['role'] != 'admin' and data['status'] == Task.STATUS_COMPLETED:
-            task.status = Task.STATUS_WAITING_APPROVAL
+        # Log de atribuição
+        if task.assigned_to:
+            new_user = User.query.get(task.assigned_to)
+            if not old_assigned:
+                log_message = f"✨ Tarefa atribuída para {new_user.username}"
+            else:
+                old_user = User.query.get(old_assigned)
+                log_message = f"🔄 Tarefa transferida de {old_user.username} para {new_user.username}"
         else:
-            task.status = data['status']
-            
-            # Se aprovada, registra a data e remove o usuário
-            if data['status'] == Task.STATUS_COMPLETED:
-                task.completion_date = datetime.now(brasilia_tz)
-                task.assigned_to = None
+            log_message = "❌ Tarefa desatribuída"
 
     if 'priority' in data and session['role'] == 'admin':
+        old_priority = task.priority
         task.priority = data['priority']
-    
+        
+        # Log de mudança de prioridade
+        priorities = {1: "Alta 🔴", 2: "Média 🟡", 3: "Baixa 🔵"}
+        log_message = f"🎯 Prioridade alterada para {priorities[task.priority]}"
+
     if 'deadline' in data and session['role'] == 'admin':
+        old_deadline = task.deadline
         if data['deadline']:
             try:
                 task.deadline = datetime.fromisoformat(data['deadline'])
+                # Log de mudança de prazo
+                log_message = f"📅 Prazo definido para {task.deadline.strftime('%d/%m/%Y')}"
             except ValueError:
                 return jsonify({'success': False, 'message': 'Formato de data inválido'}), 400
         else:
             task.deadline = None
-    
-    if 'message' in data and data['message'].strip():
-        new_comment = TaskComment(
+            log_message = "📅 Prazo removido"
+
+    # Adicionar log como comentário do sistema
+    if log_message:
+        system_comment = TaskComment(
             task_id=task.id,
             user_id=session['user_id'],
-            message=data['message'].strip()
+            message=log_message,
+            is_system_message=True  # Novo campo para identificar mensagens do sistema
         )
-        db.session.add(new_comment)
-    
+        db.session.add(system_comment)
+
     db.session.commit()
+
+    # Emitir evento de nova mensagem se houver log
+    if log_message:
+        socketio.emit('new_message', {
+            'task_id': task_id,
+            'user_id': session['user_id'],
+            'username': 'Sistema',
+            'message': log_message,
+            'created_at': datetime.now(brasilia_tz).strftime('%d/%m/%Y %H:%M'),
+            'is_system_message': True
+        }, room=f"task_{task_id}")
+
     return jsonify({'success': True})
 
 @app.route('/task/<int:task_id>/chat')
@@ -424,92 +463,122 @@ def get_task_comments(task_id):
 @app.route('/reports')
 @login_required
 def reports():
-    # Calcular métricas
-    total_tasks = Task.query.filter_by(is_active=True).count()
-    completed_tasks = Task.query.filter_by(is_active=True, status='completed').count()
+    # Histórico de usuários
+    user_stats = []
+    users = User.query.all()  # Incluir todos os usuários
+    
+    for user in users:
+        # Consultar todas as tarefas que já foram atribuídas ao usuário
+        tasks_by_status = {
+            'pending': Task.query.filter(
+                Task.assigned_to == user.id,
+                Task.status == 'pending'
+            ).count(),
+            
+            'in_progress': Task.query.filter(
+                Task.assigned_to == user.id,
+                Task.status == 'in_progress'
+            ).count(),
+            
+            'waiting_approval': Task.query.filter(
+                Task.assigned_to == user.id,
+                Task.status == 'waiting_approval'
+            ).count(),
+            
+            'completed': Task.query.filter(
+                Task.assigned_to == user.id,
+                Task.status == 'completed'
+            ).count()
+        }
+        
+        # Consultar tarefas concluídas pelo usuário
+        completed_tasks = Task.query.filter(
+            Task.assigned_to == user.id,
+            Task.status == 'completed'
+        ).all()
+        
+        # Total de tarefas do usuário
+        total_tasks = sum(tasks_by_status.values())
+        
+        # Calcular tempo médio de conclusão
+        completion_times = []
+        for task in completed_tasks:
+            if task.completion_date and task.created_at:
+                days = (task.completion_date - task.created_at).days
+                completion_times.append(days)
+        
+        avg_completion_time = round(sum(completion_times) / len(completion_times)) if completion_times else 0
+        
+        # Última atividade
+        last_task = Task.query.filter(
+            Task.assigned_to == user.id
+        ).order_by(Task.updated_at.desc()).first()
+        
+        user_stats.append({
+            'username': user.username,
+            'profile_image': user.profile_image or f'https://ui-avatars.com/api/?name={user.username}',
+            'tasks_by_status': tasks_by_status,
+            'total_tasks': total_tasks,
+            'total_completed': tasks_by_status['completed'],
+            'avg_completion_time': avg_completion_time,
+            'completion_rate': round((tasks_by_status['completed'] / total_tasks * 100) if total_tasks > 0 else 0),
+            'last_activity': last_task.updated_at if last_task else user.created_at,
+            'fastest_completion': min(completion_times) if completion_times else 0,
+            'slowest_completion': max(completion_times) if completion_times else 0
+        })
+    
+    # Ordenar por total de tarefas concluídas
+    user_stats.sort(key=lambda x: x['total_completed'], reverse=True)
+    
+    # Estatísticas gerais
+    total_tasks = Task.query.count()
+    completed_tasks = Task.query.filter_by(status='completed').count()
     
     # Status counts
     status_counts = {
-        'pending': Task.query.filter_by(is_active=True, status='pending').count(),
-        'in_progress': Task.query.filter_by(is_active=True, status='in_progress').count(),
-        'waiting_approval': Task.query.filter_by(is_active=True, status='waiting_approval').count(),
+        'pending': Task.query.filter_by(status='pending').count(),
+        'in_progress': Task.query.filter_by(status='in_progress').count(),
+        'waiting_approval': Task.query.filter_by(status='waiting_approval').count(),
         'completed': completed_tasks
     }
     
-    # Calcular tempo médio de conclusão
-    completed_tasks_with_time = Task.query.filter_by(
-        is_active=True, 
-        status='completed'
-    ).all()
-    
-    total_days = 0
-    for task in completed_tasks_with_time:
-        if task.completion_date and task.created_at:
-            days = (task.completion_date - task.created_at).days
-            total_days += days
-    
-    avg_completion_time = round(total_days / len(completed_tasks_with_time)) if completed_tasks_with_time else 0
-    
-    # Taxa de conclusão
-    completion_rate = round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0)
-    
-    # Tarefas por dia
+    # Dados para o gráfico de produtividade
     today = datetime.now(brasilia_tz)
-    tasks_last_7_days = Task.query.filter(
-        Task.is_active == True,
-        Task.created_at >= today - timedelta(days=7)
-    ).count()
-    tasks_per_day = round(tasks_last_7_days / 7, 1)
-    
-    # Usuários ativos
-    active_users = User.query.filter_by(is_active=True).count()
-    
-    # Dados para o gráfico de produtividade semanal
     weekly_data = []
     weekly_labels = []
-    for i in range(7, 0, -1):
-        date = today - timedelta(days=i)
+    
+    for i in range(84, 0, -7):
+        start_date = today - timedelta(days=i)
+        end_date = start_date + timedelta(days=7)
+        
         count = Task.query.filter(
-            Task.is_active == True,
             Task.status == 'completed',
-            Task.completion_date >= date.replace(hour=0, minute=0, second=0),
-            Task.completion_date < (date + timedelta(days=1)).replace(hour=0, minute=0, second=0)
+            Task.completion_date >= start_date,
+            Task.completion_date < end_date
         ).count()
+        
         weekly_data.append(count)
-        weekly_labels.append(date.strftime('%d/%m'))
+        weekly_labels.append(start_date.strftime('%d/%m'))
     
-    # Top usuários
-    top_users = []
-    users = User.query.filter_by(is_active=True).all()
-    for user in users:
-        user_tasks = Task.query.filter_by(assigned_to=user.id).all()
-        completed = len([t for t in user_tasks if t.status == 'completed'])
-        if user_tasks:
-            completion_rate = round((completed / len(user_tasks) * 100))
-        else:
-            completion_rate = 0
-            
-        top_users.append({
-            'username': user.username,
-            'profile_image': user.profile_image or f'https://ui-avatars.com/api/?name={user.username}',
-            'completed_tasks': completed,
-            'avg_time': round(total_days / completed if completed > 0 else 0),
-            'completion_rate': completion_rate,
-            'last_activity': user.last_login or user.created_at
-        })
+    # Garantir que todas as datas tenham fuso horário
+    for user in user_stats:
+        if user['last_activity'].tzinfo is None:
+            user['last_activity'] = brasilia_tz.localize(user['last_activity'])
     
-    # Ordenar por tarefas concluídas
-    top_users.sort(key=lambda x: x['completed_tasks'], reverse=True)
+    # Calcular a data mais antiga com fuso horário
+    oldest_activity = min(u['last_activity'] for u in user_stats) if user_stats else today
+    days_active = (today - oldest_activity).days or 1  # Evitar divisão por zero
     
+    # Calcular métricas com datas corrigidas
     return render_template('reports.html',
                          status_counts=status_counts,
-                         avg_completion_time=avg_completion_time,
-                         completion_rate=completion_rate,
-                         tasks_per_day=tasks_per_day,
-                         active_users=active_users,
+                         avg_completion_time=round(sum(u['avg_completion_time'] for u in user_stats) / len(user_stats)) if user_stats else 0,
+                         completion_rate=round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0),
+                         tasks_per_day=round(completed_tasks / days_active, 1),
+                         active_users=len([u for u in user_stats if u['total_completed'] > 0]),
                          weekly_completed=weekly_data,
                          weekly_labels=weekly_labels,
-                         top_users=top_users)
+                         user_stats=user_stats)
 
 @app.route('/task/delete/<int:task_id>', methods=['POST'])
 @login_required
@@ -842,6 +911,24 @@ def handle_message(data):
     room = f"task_{data['task_id']}"
     emit('message', data, room=room)
 
+def init_db():
+    with app.app_context():
+        # Recriar o banco
+        db.drop_all()
+        db.create_all()
+        
+        # Criar usuário admin
+        if not User.query.filter_by(username='admin').first():
+            admin = User(
+                username='admin',
+                email='admin@sistema.com',
+                password='admin',
+                role='admin'
+            )
+            db.session.add(admin)
+            db.session.commit()
+
 if __name__ == '__main__':
+    init_db()
     socketio.run(app, debug=True)
 

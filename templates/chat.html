@@ -166,6 +166,22 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+.message.system {
+    margin: 1rem auto;
+    max-width: 90%;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.message.system .message-content {
+    padding: 0;
+}
 </style>
 
 {% endblock %}
@@ -208,15 +224,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Receber mensagens em tempo real
     socket.on('new_message', function(data) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${data.user_id == {{ session.user_id }} ? 'sent' : 'received'}`;
         
-        messageDiv.innerHTML = `
-            <div class="message-header">
-                <strong>${data.username}</strong>
-                <small>${data.created_at}</small>
-            </div>
-            <div class="message-content">${data.message}</div>
-        `;
+        if (data.is_system_message) {
+            messageDiv.className = 'message system';
+            messageDiv.innerHTML = `
+                <div class="message-content">${data.message}</div>
+            `;
+        } else {
+            messageDiv.className = `message ${data.user_id == {{ session.user_id }} ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <strong>${data.username}</strong>
+                    <small>${data.created_at}</small>
+                </div>
+                <div class="message-content">${data.message}</div>
+            `;
+        }
         
         messagesDiv.appendChild(messageDiv);
         scrollToBottom();

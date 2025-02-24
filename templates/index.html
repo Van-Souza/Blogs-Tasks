@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const button = event.relatedTarget;
         const taskId = button.dataset.taskId;
         const taskTitle = button.dataset.taskTitle;
-        const taskDeadline = button.dataset.taskDeadline;
+        const taskDeadline = button.dataset.taskDeadline || '';  // Valor padrão vazio
         const taskPriority = button.dataset.taskPriority;
 
         document.getElementById('taskId').value = taskId;
@@ -232,8 +232,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = {};
 
         {% if session.role == 'admin' %}
-        const deadlineInput = document.getElementById('taskDeadline').value;
-        data.deadline = deadlineInput || null;
+        const deadlineInput = document.getElementById('taskDeadline');
+        data.deadline = deadlineInput.value || null;  // Envia null se estiver vazio
         data.priority = document.getElementById('taskPriority').value;
         {% endif %}
 

@@ -14,59 +14,43 @@
    ```bash
    pip install -r requirements.txt
    ```
-5. Crie um arquivo `.env` com as variáveis de ambiente:
-   ```env
-   FLASK_APP=app.py
-   FLASK_ENV=development
-   ```
-
-## Comandos do Banco de Dados
-
-### Inicialização
-```bash
-# Criar banco novo com usuário master (admin/admin)
-flask init-db
-
-# OU resetar banco (apaga tudo e recria)
-flask reset-db
-```
-
-### Migrations
-```bash
-# Inicializar sistema de migrations
-flask db init
-
-# Criar nova migration
-flask db migrate -m "Descrição da alteração"
-
-# Aplicar migrations pendentes
-flask db upgrade
-
-# Reverter última migration
-flask db downgrade
-```
-
-### Backup e Restauração
-```bash
-# Backup (Windows)
-copy instance\tasks.db instance\tasks.db.backup
-
-# Backup (Linux/Mac)
-cp instance/tasks.db instance/tasks.db.backup
-
-# Restaurar (Windows)
-copy instance\tasks.db.backup instance\tasks.db
-
-# Restaurar (Linux/Mac)
-cp instance/tasks.db.backup instance/tasks.db
-```
-
-### Usuário Master Padrão
-- Username: admin
-- Password: admin
-- Email: admin@sistema.com
 
 ## Executando o Sistema
+
+Execute o arquivo run.py:
 ```bash
-flask run
+python run.py
+```
+
+Este comando irá:
+- Criar a pasta instance se não existir
+- Criar o banco de dados
+- Criar o usuário admin (se não existir)
+- Iniciar o servidor Flask
+
+## Acessando o Sistema
+
+- URL: http://127.0.0.1:5000
+- Login padrão:
+  - Usuário: admin
+  - Senha: admin
+
+## Backup do Banco de Dados
+
+### Backup
+```bash
+# Windows
+copy instance\tasks.db instance\tasks.db.backup
+
+# Linux/Mac
+cp instance/tasks.db instance/tasks.db.backup
+```
+
+### Restauração
+```bash
+# Windows
+copy instance\tasks.db.backup instance\tasks.db
+
+# Linux/Mac
+cp instance/tasks.db.backup instance/tasks.db
 ``` 

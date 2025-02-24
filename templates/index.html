@@ -1,167 +1,275 @@
 {% extends "base.html" %}
 {% block content %}
+<!-- Cards de Estatísticas -->
 <div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card shadow-sm border-0 rounded-3">
-            <div class="card-body bg-light">
-                <form method="GET" class="row g-3">
-                    <!-- Campo de Pesquisa -->
-                    <div class="col-md-3">
-                        <input type="text" class="form-control border-0 shadow-sm" name="search" placeholder="🔍 Pesquisar tarefas..." value="{{ search }}">
-                    </div>
-                    <!-- Filtro por Status -->
-                    <div class="col-md-2">
-                        <select class="form-select border-0 shadow-sm" name="status">
-                            <option value="">📊 Todos os status</option>
-                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>⏳ Pendente</option>
-                            <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>🔄 Em andamento</option>
-                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>✅ Concluída</option>
+    <div class="col-md-3">
+        <a href="{{ url_for('index') }}" class="text-decoration-none">
+            <div class="stats-card bg-gradient-primary text-white">
+                <div class="stats-icon">
+                    <i class="bi bi-list-task"></i>
+                </div>
+                <div class="stats-info">
+                    <h3 id="total-tasks">{{ Task.query.filter_by(is_active=True).count() }}</h3>
+                    <p>Total de Tarefas</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('index', status='completed') }}" class="text-decoration-none">
+            <div class="stats-card bg-gradient-success text-white">
+                <div class="stats-icon">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div class="stats-info">
+                    <h3 id="completed-tasks">{{ Task.query.filter_by(is_active=True, status='completed').count() }}</h3>
+                    <p>Concluídas</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('index', status='in_progress') }}" class="text-decoration-none">
+            <div class="stats-card bg-gradient-warning text-white">
+                <div class="stats-icon">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <div class="stats-info">
+                    <h3 id="in-progress-tasks">{{ Task.query.filter_by(is_active=True, status='in_progress').count() }}</h3>
+                    <p>Em Progresso</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{{ url_for('index', status='pending') }}" class="text-decoration-none">
+            <div class="stats-card bg-gradient-danger text-white">
+                <div class="stats-icon">
+                    <i class="bi bi-exclamation-circle"></i>
+                </div>
+                <div class="stats-info">
+                    <h3 id="pending-tasks">{{ Task.query.filter_by(is_active=True, status='pending').count() }}</h3>
+                    <p>Pendentes</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body bg-light rounded-3">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" 
+                           class="form-control" 
+                           name="search" 
+                           placeholder="Pesquisar tarefas..." 
+                           value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" name="status">
+                    <option value="">📊 Status</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>
+                        ⏳ Pendente
+                    </option>
+                    <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>
+                        🔄 Em andamento
+                    </option>
+                    <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>
+                        ✅ Concluída
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" name="priority">
+                    <option value="">🎯 Prioridade</option>
+                    <option value="1" {% if priority_filter == 1 %}selected{% endif %}>
+                        🔴 Alta
+                    </option>
+                    <option value="2" {% if priority_filter == 2 %}selected{% endif %}>
+                        🟡 Média
+                    </option>
+                    <option value="3" {% if priority_filter == 3 %}selected{% endif %}>
+                        🔵 Baixa
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" name="user">
+                    <option value="">👥 Responsável</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if user_filter == user.id %}selected{% endif %}>
+                        👤 {{ user.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lista de Tarefas -->
+<div class="card shadow-lg border-0">
+    <div class="card-header d-flex justify-content-between align-items-center"
+         style="background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));">
+        <h5 class="mb-0 text-white">
+            <i class="bi bi-list-check"></i> Tarefas
+        </h5>
+        <span class="badge bg-white text-primary">{{ tasks.total }} tarefas</span>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light">
+                <tr>
+                    <th>Título</th>
+                    <th>Status</th>
+                    <th>Prioridade</th>
+                    <th>Prazo</th>
+                    <th>Responsável</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks.items %}
+                <tr class="task-row">
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="task-icon me-2">
+                                {% if task.status == 'completed' %}
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                {% elif task.status == 'in_progress' %}
+                                    <i class="bi bi-clock-fill text-warning"></i>
+                                {% else %}
+                                    <i class="bi bi-circle text-muted"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <a href="{{ task.url }}" target="_blank" class="text-decoration-none">
+                                    {{ task.title }}
+                                </a>
+                                {% if task.deadline and task.deadline < now %}
+                                <span class="badge bg-danger ms-2">Atrasado</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm status-select" 
+                                data-task-id="{{ task.id }}"
+                                data-original-status="{{ task.status }}"
+                                {% if session.role != 'admin' and task.assigned_to != session.user_id %}disabled{% endif %}>
+                            <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>
+                                ⏳ Pendente
+                            </option>
+                            <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>
+                                🔄 Em andamento
+                            </option>
+                            <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>
+                                ✅ Concluída
+                            </option>
                         </select>
-                    </div>
-                    <!-- Filtro por Prioridade -->
-                    <div class="col-md-2">
-                        <select class="form-select border-0 shadow-sm" name="priority">
-                            <option value="">🎯 Todas as prioridades</option>
-                            <option value="1" {% if priority_filter == 1 %}selected{% endif %}>🔴 Alta</option>
-                            <option value="2" {% if priority_filter == 2 %}selected{% endif %}>🟡 Média</option>
-                            <option value="3" {% if priority_filter == 3 %}selected{% endif %}>🔵 Baixa</option>
-                        </select>
-                    </div>
-                    <!-- Filtro por Usuário -->
-                    <div class="col-md-3">
-                        <select class="form-select border-0 shadow-sm" name="user">
-                            <option value="">👥 Todos os usuários</option>
+                    </td>
+                    <td>
+                        <span class="priority-badge {% if task.priority == 1 %}high
+                                                  {% elif task.priority == 2 %}medium
+                                                  {% else %}low{% endif %}">
+                            {% if task.priority == 1 %}Alta
+                            {% elif task.priority == 2 %}Média
+                            {% else %}Baixa{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        {% if task.deadline %}
+                        <div class="deadline-info">
+                            <i class="bi bi-calendar-event"></i>
+                            {{ task.deadline.strftime('%d/%m/%Y') }}
+                        </div>
+                        {% else %}
+                        <span class="text-muted">Sem prazo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if session.role == 'admin' %}
+                        <select class="form-select form-select-sm assign-select" data-task-id="{{ task.id }}">
+                            <option value="">Não atribuído</option>
                             {% for user in users %}
-                            <option value="{{ user.id }}" {% if user_filter == user.id %}selected{% endif %}>
+                            <option value="{{ user.id }}" {% if task.assigned_to == user.id %}selected{% endif %}>
                                 👤 {{ user.username }}
                             </option>
                             {% endfor %}
                         </select>
-                    </div>
-                    <!-- Botão de Filtrar -->
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100 shadow-sm">
-                            <i class="bi bi-search"></i> Filtrar
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="row">
-    <div class="col-md-12">
-        <div class="card shadow border-0 rounded-3">
-            <div class="card-header bg-gradient text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(45deg, #4158D0, #C850C0);">
-                <h5 class="mb-0">📋 Tarefas</h5>
-                <span class="badge bg-white text-primary rounded-pill px-3">{{ tasks.total }} tarefas</span>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Título</th>
-                            <th>Status</th>
-                            <th>Prioridade</th>
-                            <th>Prazo</th>
-                            <th>Responsável</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for task in tasks.items %}
-                        <tr>
-                            <td>
-                                <a href="{{ task.url }}" target="_blank" class="text-decoration-none">
-                                    {{ task.title }}
-                                </a>
-                            </td>
-                            <td class="{% if task.status == 'pending' %}status-pending
-                                    {% elif task.status == 'in_progress' %}status-in-progress
-                                    {% elif task.status == 'completed' %}status-completed{% endif %}">
-                                <select class="form-select form-select-sm status-select" 
-                                        data-task-id="{{ task.id }}"
-                                        {% if session.role != 'admin' and task.assigned_to != session.user_id %}disabled{% endif %}>
-                                    <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>⏳ Pendente</option>
-                                    <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>🔄 Em andamento</option>
-                                    <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>✅ Concluída</option>
-                                </select>
-                            </td>
-                            <td>
-                                <span class="badge {% if task.priority == 1 %}bg-danger{% elif task.priority == 2 %}bg-warning{% else %}bg-info{% endif %}">
-                                    {% if task.priority == 1 %}🔴 Alta{% elif task.priority == 2 %}🟡 Média{% else %}🔵 Baixa{% endif %}
-                                </span>
-                            </td>
-                            <td>
-                                {% if task.deadline %}
-                                    {{ task.deadline.strftime('%d/%m/%Y') }}
-                                {% else %}
-                                    Sem prazo
+                        {% else %}
+                        <div class="user-info">
+                            <img src="{{ task.assignee.profile_image or 'https://ui-avatars.com/api/?name=' + task.assignee.username }}" 
+                                 class="user-avatar" 
+                                 alt="{{ task.assignee.username }}">
+                            {{ task.assignee.username if task.assignee else 'Não atribuído' }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button type="button" 
+                                    class="btn btn-sm btn-outline-primary btn-chat position-relative" 
+                                    data-task-id="{{ task.id }}">
+                                <i class="bi bi-chat"></i>
+                                {% if task.has_new_messages(session.user_id) %}
+                                <span class="notification-dot"></span>
                                 {% endif %}
-                            </td>
-                            <td>
-                                {% if session.role == 'admin' %}
-                                <select class="form-select form-select-sm assign-select" data-task-id="{{ task.id }}">
-                                    <option value="">Não atribuído</option>
-                                    {% for user in users %}
-                                    <option value="{{ user.id }}" {% if task.assigned_to == user.id %}selected{% endif %}>
-                                        👤 {{ user.username }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                                {% else %}
-                                {{ task.assignee.username if task.assignee else 'Não atribuído' }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-sm btn-outline-primary btn-chat position-relative" 
-                                            data-task-id="{{ task.id }}">
-                                        <i class="bi bi-chat"></i> Chat
-                                        {% if task.has_new_messages(session.user_id) %}
-                                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
-                                            <span class="visually-hidden">Nova mensagem</span>
-                                        </span>
-                                        {% endif %}
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" 
-                                            data-bs-toggle="modal" data-bs-target="#taskModal"
-                                            data-task-id="{{ task.id }}"
-                                            data-task-title="{{ task.title }}"
-                                            data-task-deadline="{{ task.deadline.strftime('%Y-%m-%d') if task.deadline else '' }}"
-                                            data-task-priority="{{ task.priority }}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    {% if session.role == 'admin' %}
-                                    <button type="button" class="btn btn-sm btn-outline-danger delete-task" data-task-id="{{ task.id }}">
-                                        <i class="bi bi-archive"></i> Arquivar
-                                    </button>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% if tasks.pages > 1 %}
-            <div class="card-footer">
-                <nav>
-                    <ul class="pagination justify-content-center mb-0">
-                        {% for page in range(1, tasks.pages + 1) %}
-                        <li class="page-item {% if page == tasks.page %}active{% endif %}">
-                            <a class="page-link" 
-                               href="{{ url_for('index', page=page, status=status_filter, priority=priority_filter, user=user_filter, search=search) }}">
-                                {{ page }}
-                            </a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </nav>
-            </div>
-            {% endif %}
-        </div>
+                            </button>
+                            
+                            <button type="button" 
+                                    class="btn btn-sm btn-outline-primary" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#taskModal"
+                                    data-task-id="{{ task.id }}"
+                                    data-task-title="{{ task.title }}"
+                                    data-task-deadline="{{ task.deadline.strftime('%Y-%m-%d') if task.deadline else '' }}"
+                                    data-task-priority="{{ task.priority }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            
+                            {% if session.role == 'admin' %}
+                            <button type="button" 
+                                    class="btn btn-sm btn-outline-danger delete-task" 
+                                    data-task-id="{{ task.id }}">
+                                <i class="bi bi-archive"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    
+    {% if tasks.pages > 1 %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                {% for page in range(1, tasks.pages + 1) %}
+                <li class="page-item {% if page == tasks.page %}active{% endif %}">
+                    <a class="page-link" 
+                       href="{{ url_for('index', page=page, status=status_filter, priority=priority_filter, user=user_filter, search=search) }}">
+                        {{ page }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Modal de Edição de Tarefa -->
@@ -263,39 +371,44 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Atualização do status da tarefa
+    // Atualizar quando mudar status
     document.querySelectorAll('.status-select').forEach(select => {
         select.addEventListener('change', function() {
             const taskId = this.dataset.taskId;
-            const status = this.value;
-
-            const td = this.closest('td');
-            if (td) {
-                td.classList.remove('status-pending', 'status-in-progress', 'status-completed');
-                if (status === 'pending') {
-                    td.classList.add('status-pending');
-                } else if (status === 'in_progress') {
-                    td.classList.add('status-in-progress');
-                } else if (status === 'completed') {
-                    td.classList.add('status-completed');
-                }
-            }
+            const newStatus = this.value;
+            const originalStatus = this.dataset.originalStatus;
 
             fetch(`/task/update/${taskId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ status: status })
+                body: JSON.stringify({ status: newStatus })
             })
             .then(response => response.json())
             .then(data => {
-                if (!data.success) {
-                    showToast('Falha ao atualizar o status da tarefa', 'danger');
-                    location.reload();
+                if (data.success) {
+                    // Atualiza o status original para o novo status
+                    this.dataset.originalStatus = newStatus;
+                    
+                    // Atualiza o ícone da tarefa
+                    const taskIcon = this.closest('tr').querySelector('.task-icon i');
+                    if (taskIcon) {
+                        taskIcon.className = newStatus === 'completed' ? 'bi bi-check-circle-fill text-success' :
+                                           newStatus === 'in_progress' ? 'bi bi-clock-fill text-warning' :
+                                           'bi bi-circle text-muted';
+                    }
+                    
+                    updateStats(); // Atualiza os cards imediatamente
+                    showToast('Status atualizado com sucesso', 'success');
                 } else {
-                    showToast('Status da tarefa atualizado com sucesso', 'success');
+                    this.value = originalStatus; // Reverte para o status original
+                    showToast('Falha ao atualizar status', 'danger');
                 }
+            })
+            .catch(error => {
+                this.value = originalStatus;
+                showToast('Erro ao atualizar status', 'danger');
             });
         });
     });
@@ -325,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Exclusão de tarefa
+    // Também atualizar quando excluir uma tarefa
     document.querySelectorAll('.delete-task').forEach(button => {
         button.addEventListener('click', function() {
             if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
@@ -337,6 +450,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        updateStats(); // Atualiza os cards após excluir
                         showToast('Tarefa excluída com sucesso', 'success');
                         location.reload();
                     } else {
@@ -347,73 +461,205 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Função para atualizar os cards com animação
+function updateStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            animateNumber('total-tasks', data.total);
+            animateNumber('completed-tasks', data.completed);
+            animateNumber('in-progress-tasks', data.in_progress);
+            animateNumber('pending-tasks', data.pending);
+        })
+        .catch(error => {
+            console.error('Erro ao atualizar estatísticas:', error);
+        });
+}
+
+// Função melhorada para animação dos números
+function animateNumber(elementId, newValue) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    const currentValue = parseInt(element.textContent) || 0;
+    const duration = 500;
+    const steps = 20;
+    const increment = (newValue - currentValue) / steps;
+    let currentStep = 0;
+
+    const animation = setInterval(() => {
+        currentStep++;
+        const value = Math.round(currentValue + (increment * currentStep));
+        element.textContent = value;
+
+        if (currentStep >= steps) {
+            element.textContent = newValue;
+            clearInterval(animation);
+        }
+    }, duration / steps);
+}
+
+// Atualizar a cada 30 segundos
+setInterval(updateStats, 30000);
+
+// Atualizar na carga inicial
+document.addEventListener('DOMContentLoaded', updateStats);
 </script>
 
 <!-- Atualização dos estilos das células de status -->
 <style>
-.status-pending {
-    background-color: #fff3cd !important;
-    transition: background-color 0.3s;
-}
-.status-in-progress {
-    background-color: #cfe2ff !important;
-    transition: background-color 0.3s;
-}
-.status-completed {
-    background-color: #d1e7dd !important;
-    transition: background-color 0.3s;
+/* Cards de Estatísticas */
+.stats-card {
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
 }
 
-.btn-group .btn {
-    margin: 0 2px;
-    border-radius: 5px !important;
-    transition: all 0.3s;
+.stats-card:hover {
+    transform: translateY(-5px);
 }
 
-.btn-group .btn:hover {
-    transform: translateY(-2px);
+.bg-gradient-primary {
+    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
 }
 
-.form-select, .form-control {
-    transition: all 0.3s;
+.bg-gradient-success {
+    background: linear-gradient(45deg, #2ecc71, #27ae60);
 }
 
-.form-select:focus, .form-control:focus {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+.bg-gradient-warning {
+    background: linear-gradient(45deg, #f1c40f, #f39c12);
 }
 
-.card {
-    transition: all 0.3s;
+.bg-gradient-danger {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
 }
 
-.card:hover {
-    transform: translateY(-2px);
+.stats-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
 }
 
-.pagination .page-link {
-    border-radius: 5px;
-    margin: 0 2px;
-    transition: all 0.3s;
+.stats-info h3 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
 }
 
-.pagination .page-link:hover {
-    transform: translateY(-2px);
+.stats-info p {
+    margin: 0;
+    opacity: 0.8;
 }
 
-.modal-content {
-    border-radius: 15px;
-    border: none;
+/* Search Box */
+.search-box {
+    position: relative;
 }
 
-.modal-header {
-    background: linear-gradient(45deg, #4158D0, #C850C0);
-    color: white;
-    border-radius: 15px 15px 0 0;
+.search-box i {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
 }
 
-.btn-close {
-    filter: brightness(0) invert(1);
+.search-box input {
+    padding-left: 2.5rem;
+    border-radius: 25px;
+}
+
+/* Priority Badges */
+.priority-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.priority-badge.high {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.priority-badge.medium {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.priority-badge.low {
+    background-color: #dbeafe;
+    color: #2563eb;
+}
+
+/* User Avatar */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.action-buttons .btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Notification Dot */
+.notification-dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    background-color: var(--danger-color);
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+/* Deadline Info */
+.deadline-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6c757d;
+}
+
+/* Task Icon */
+.task-icon i {
+    font-size: 1.2rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 1rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .action-buttons .btn {
+        width: 100%;
+    }
 }
 </style>
 {% endblock %}

@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pytz import timezone
 from sqlalchemy import case  # Importação adicionada
 brasilia_tz = timezone('America/Sao_Paulo')
@@ -8,7 +8,6 @@ import requests
 import os
 from functools import wraps
 from pytz import timezone
-from datetime import datetime
 from flask_migrate import Migrate
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -425,21 +424,92 @@ def get_task_comments(task_id):
 @app.route('/reports')
 @login_required
 def reports():
-    if session.get('role') != 'admin':
-        flash('Acesso negado. Somente administradores podem acessar relatórios.', 'danger')
-        return redirect(url_for('index'))
-
-    # Consultas para os relatórios
-    tasks_by_status = db.session.query(Task.status, db.func.count(Task.id)).group_by(Task.status).all()
-    tasks_by_user = db.session.query(User.username, db.func.count(Task.id)).join(Task, Task.assigned_to == User.id, isouter=True).group_by(User.username).all()
-    tasks_by_priority = db.session.query(Task.priority, db.func.count(Task.id)).group_by(Task.priority).all()
-    overdue_tasks = Task.query.filter(Task.deadline < datetime.now()).count()
-
-    return render_template('reports.html', 
-                         tasks_by_status=tasks_by_status,
-                         tasks_by_user=tasks_by_user,
-                         tasks_by_priority=tasks_by_priority,
-                         overdue_tasks=overdue_tasks)
+    # Calcular métricas
+    total_tasks = Task.query.filter_by(is_active=True).count()
+    completed_tasks = Task.query.filter_by(is_active=True, status='completed').count()
+    
+    # Status counts
+    status_counts = {
+        'pending': Task.query.filter_by(is_active=True, status='pending').count(),
+        'in_progress': Task.query.filter_by(is_active=True, status='in_progress').count(),
+        'waiting_approval': Task.query.filter_by(is_active=True, status='waiting_approval').count(),
+        'completed': completed_tasks
+    }
+    
+    # Calcular tempo médio de conclusão
+    completed_tasks_with_time = Task.query.filter_by(
+        is_active=True, 
+        status='completed'
+    ).all()
+    
+    total_days = 0
+    for task in completed_tasks_with_time:
+        if task.completion_date and task.created_at:
+            days = (task.completion_date - task.created_at).days
+            total_days += days
+    
+    avg_completion_time = round(total_days / len(completed_tasks_with_time)) if completed_tasks_with_time else 0
+    
+    # Taxa de conclusão
+    completion_rate = round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0)
+    
+    # Tarefas por dia
+    today = datetime.now(brasilia_tz)
+    tasks_last_7_days = Task.query.filter(
+        Task.is_active == True,
+        Task.created_at >= today - timedelta(days=7)
+    ).count()
+    tasks_per_day = round(tasks_last_7_days / 7, 1)
+    
+    # Usuários ativos
+    active_users = User.query.filter_by(is_active=True).count()
+    
+    # Dados para o gráfico de produtividade semanal
+    weekly_data = []
+    weekly_labels = []
+    for i in range(7, 0, -1):
+        date = today - timedelta(days=i)
+        count = Task.query.filter(
+            Task.is_active == True,
+            Task.status == 'completed',
+            Task.completion_date >= date.replace(hour=0, minute=0, second=0),
+            Task.completion_date < (date + timedelta(days=1)).replace(hour=0, minute=0, second=0)
+        ).count()
+        weekly_data.append(count)
+        weekly_labels.append(date.strftime('%d/%m'))
+    
+    # Top usuários
+    top_users = []
+    users = User.query.filter_by(is_active=True).all()
+    for user in users:
+        user_tasks = Task.query.filter_by(assigned_to=user.id).all()
+        completed = len([t for t in user_tasks if t.status == 'completed'])
+        if user_tasks:
+            completion_rate = round((completed / len(user_tasks) * 100))
+        else:
+            completion_rate = 0
+            
+        top_users.append({
+            'username': user.username,
+            'profile_image': user.profile_image or f'https://ui-avatars.com/api/?name={user.username}',
+            'completed_tasks': completed,
+            'avg_time': round(total_days / completed if completed > 0 else 0),
+            'completion_rate': completion_rate,
+            'last_activity': user.last_login or user.created_at
+        })
+    
+    # Ordenar por tarefas concluídas
+    top_users.sort(key=lambda x: x['completed_tasks'], reverse=True)
+    
+    return render_template('reports.html',
+                         status_counts=status_counts,
+                         avg_completion_time=avg_completion_time,
+                         completion_rate=completion_rate,
+                         tasks_per_day=tasks_per_day,
+                         active_users=active_users,
+                         weekly_completed=weekly_data,
+                         weekly_labels=weekly_labels,
+                         top_users=top_users)
 
 @app.route('/task/delete/<int:task_id>', methods=['POST'])
 @login_required

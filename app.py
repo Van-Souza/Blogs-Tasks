@@ -11,6 +11,7 @@ from pytz import timezone
 from datetime import datetime
 from flask_migrate import Migrate
 from apscheduler.schedulers.background import BackgroundScheduler
+from flask_socketio import SocketIO, emit, join_room, leave_room
 
 brasilia_tz = timezone('America/Sao_Paulo')
 
@@ -35,6 +36,9 @@ app.config['SYNC_URLS'] = [
 ]
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+# Inicializar Socket.IO
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Models
 class User(db.Model):
@@ -654,25 +658,23 @@ def add_comment(task_id):
         message=message
     )
     
-    # Remove a visualização apenas do destinatário da tarefa
-    # e dos admins (exceto o autor se for admin)
-    if task.assigned_to and task.assigned_to != session['user_id']:
-        ChatView.query.filter_by(
-            task_id=task_id, 
-            user_id=task.assigned_to
-        ).delete()
-    
-    # Remove visualização dos admins (exceto o autor)
-    admins = User.query.filter_by(role='admin').all()
-    for admin in admins:
-        if admin.id != session['user_id']:
-            ChatView.query.filter_by(
-                task_id=task_id,
-                user_id=admin.id
-            ).delete()
-    
     db.session.add(comment)
     db.session.commit()
+    
+    # Emitir evento de nova mensagem para a sala do chat
+    socketio.emit('new_message', {
+        'task_id': task_id,
+        'user_id': session['user_id'],
+        'username': session['username'],
+        'message': message,
+        'created_at': comment.created_at.strftime('%d/%m/%Y %H:%M')
+    }, room=f"task_{task_id}")
+    
+    # Emitir evento para todos os usuários (para atualizar a bolinha)
+    socketio.emit('notification', {
+        'task_id': task_id,
+        'user_id': session['user_id']
+    })
     
     return jsonify({
         'success': True,
@@ -754,6 +756,22 @@ def init_db_command():
 
 # Remover ou comentar o comando reset-db se não for necessário
 
+# Adicionar eventos de Socket.IO
+@socketio.on('join')
+def on_join(data):
+    room = f"task_{data['task_id']}"
+    join_room(room)
+
+@socketio.on('leave')
+def on_leave(data):
+    room = f"task_{data['task_id']}"
+    leave_room(room)
+
+@socketio.on('new_message')
+def handle_message(data):
+    room = f"task_{data['task_id']}"
+    emit('message', data, room=room)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)
 

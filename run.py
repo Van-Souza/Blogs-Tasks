@@ -1,4 +1,4 @@
-from app import app, db, User
+from app import app, db, User, socketio
 from datetime import datetime
 from pytz import timezone
 import os
@@ -36,4 +36,4 @@ if __name__ == '__main__':
     print("Inicializando aplicação...")
     init_app()
     print("\nIniciando servidor...")
-    app.run(debug=True) 
+    socketio.run(app, debug=True) 

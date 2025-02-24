@@ -32,33 +32,24 @@
         <!-- Área de Chat -->
         <div class="card-body chat-container p-0">
             <!-- Histórico de Mensagens -->
-            <div class="chat-messages" id="chatMessages">
+            <div class="chat-messages" id="chat-messages">
                 {% for comment in comments %}
-                <div class="message-wrapper {% if comment.user.username == session.username %}sent{% else %}received{% endif %}">
-                    <div class="message-content">
-                        <div class="message-header">
-                            <strong class="message-author">
-                                <i class="bi {% if comment.user.username == session.username %}bi-person-circle{% else %}bi-person{% endif %}"></i>
-                                {{ comment.user.username }}
-                            </strong>
-                            <small class="message-time">
-                                {{ comment.created_at.strftime('%d/%m/%Y %H:%M') }}
-                            </small>
-                        </div>
-                        <div class="message-body">
-                            {{ comment.message }}
-                        </div>
+                <div class="message {% if comment.user_id == session.user_id %}sent{% else %}received{% endif %}">
+                    <div class="message-header">
+                        <strong>{{ comment.user.username }}</strong>
+                        <small>{{ comment.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
                     </div>
+                    <div class="message-content">{{ comment.message }}</div>
                 </div>
                 {% endfor %}
             </div>
 
             <!-- Área de Input -->
             <div class="chat-input-container">
-                <form id="chatForm" class="d-flex gap-2">
+                <form id="message-form" class="d-flex gap-2">
                     <div class="flex-grow-1 position-relative">
                         <textarea class="form-control chat-input" 
-                                  id="messageInput" 
+                                  id="message" 
                                   rows="1"
                                   placeholder="Digite sua mensagem..."
                                   style="resize: none;"></textarea>
@@ -89,48 +80,31 @@
     background: #f8f9fa;
 }
 
-.message-wrapper {
-    display: flex;
+.message {
     margin-bottom: 1rem;
-    animation: fadeIn 0.3s ease;
-}
-
-.message-wrapper.sent {
-    justify-content: flex-end;
-}
-
-.message-content {
     max-width: 70%;
-    padding: 0.8rem;
-    border-radius: 15px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.message-wrapper.sent .message-content {
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+.message.sent {
+    margin-left: auto;
+    background: var(--primary-color);
     color: white;
-    border-bottom-right-radius: 5px;
+    border-radius: 12px 12px 0 12px;
 }
 
-.message-wrapper.received .message-content {
-    background: white;
-    border-bottom-left-radius: 5px;
+.message.received {
+    margin-right: auto;
+    background: #f0f2f5;
+    border-radius: 12px 12px 12px 0;
 }
 
 .message-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.message-time {
-    opacity: 0.8;
-}
-
-.message-body {
-    word-break: break-word;
+.message-content {
+    padding: 1rem;
 }
 
 .chat-input-container {
@@ -197,44 +171,25 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const chatForm = document.getElementById('chatForm');
-    const messageInput = document.getElementById('messageInput');
-    const chatMessages = document.getElementById('chatMessages');
-    const charCount = document.querySelector('.char-count');
-    
-    // Rolar para a última mensagem
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    
-    // Atualizar contador de caracteres
-    messageInput.addEventListener('input', function() {
-        const length = this.value.length;
-        charCount.textContent = `${length}/500`;
-        charCount.style.color = length > 500 ? 'var(--danger-color)' : '';
-    });
+    const socket = io();
+    const taskId = {{ task.id }};
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message');
+    const messagesDiv = document.getElementById('chat-messages');
 
-    // Auto-expandir textarea
-    messageInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    });
-
-    // Enter para enviar (Shift + Enter para nova linha)
-    messageInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            chatForm.dispatchEvent(new Event('submit'));
-        }
-    });
+    // Entrar na sala da tarefa
+    socket.emit('join', { task_id: taskId });
 
     // Enviar mensagem
-    chatForm.addEventListener('submit', function(e) {
+    messageForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const message = messageInput.value.trim();
         
-        if (message && message.length <= 500) {
-            fetch(`/task/update/{{ task.id }}`, {
+        if (message) {
+            fetch(`/task/comment/${taskId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -244,40 +199,58 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Adicionar nova mensagem
-                    const newMessage = document.createElement('div');
-                    newMessage.className = 'message-wrapper sent';
-                    newMessage.innerHTML = `
-                        <div class="message-content">
-                            <div class="message-header">
-                                <strong class="message-author">
-                                    <i class="bi bi-person-circle"></i>
-                                    {{ session.username }}
-                                </strong>
-                                <small class="message-time">Agora</small>
-                            </div>
-                            <div class="message-body">${message}</div>
-                        </div>
-                    `;
-                    chatMessages.appendChild(newMessage);
-                    
-                    // Limpar input e resetar altura
                     messageInput.value = '';
-                    messageInput.style.height = 'auto';
-                    charCount.textContent = '0/500';
-                    
-                    // Rolar para a nova mensagem
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                    
-                    // Feedback visual
-                    const btn = chatForm.querySelector('button');
-                    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
-                    setTimeout(() => {
-                        btn.innerHTML = '<i class="bi bi-send-fill"></i>';
-                    }, 1000);
                 }
             });
         }
+    });
+
+    // Receber mensagens em tempo real
+    socket.on('new_message', function(data) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${data.user_id == {{ session.user_id }} ? 'sent' : 'received'}`;
+        
+        messageDiv.innerHTML = `
+            <div class="message-header">
+                <strong>${data.username}</strong>
+                <small>${data.created_at}</small>
+            </div>
+            <div class="message-content">${data.message}</div>
+        `;
+        
+        messagesDiv.appendChild(messageDiv);
+        scrollToBottom();
+    });
+
+    function scrollToBottom() {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Scroll inicial
+    scrollToBottom();
+
+    // Marcar mensagens como lidas ao sair
+    window.addEventListener('beforeunload', function() {
+        // Marcar mensagens como lidas
+        fetch(`/task/mark_chat_read/${taskId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        // Sair da sala
+        socket.emit('leave', { task_id: taskId });
+    });
+
+    // Também marcar como lido ao entrar no chat
+    window.addEventListener('load', function() {
+        fetch(`/task/mark_chat_read/${taskId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
     });
 });
 </script>

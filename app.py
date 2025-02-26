@@ -595,15 +595,20 @@ def delete_task(task_id):
     
     return jsonify({'success': True})
 
-# Novas rotas para gerenciamento de usuários
+# Adicionar nova rota para perfil do usuário
+@app.route('/profile')
+@login_required
+def profile():
+    user = User.query.get(session['user_id'])
+    return render_template('profile.html', user=user)
+
+# Modificar a rota existente de members para verificar permissão
 @app.route('/members')
 @login_required
 def members():
     if session.get('role') != 'admin':
-        flash('Acesso negado. Somente administradores podem acessar.', 'danger')
-        return redirect(url_for('index'))
+        return redirect(url_for('profile'))
     
-    # Busca todos os usuários, incluindo inativos
     users = User.query.all()
     return render_template('members.html', users=users)
 
@@ -970,7 +975,8 @@ def create_user():
 @app.route('/user/update_avatar/<int:user_id>', methods=['POST'])
 @login_required
 def update_avatar(user_id):
-    if session.get('role') != 'admin' and session.get('user_id') != user_id:
+    # Permite que admin edite qualquer avatar e usuários editem seu próprio avatar
+    if not (session.get('role') == 'admin' or session.get('user_id') == user_id):
         return jsonify({'success': False, 'message': 'Acesso negado'}), 403
     
     data = request.json
@@ -988,6 +994,46 @@ def update_avatar(user_id):
     except:
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Erro ao atualizar avatar'})
+
+@app.route('/user/update_profile/<int:user_id>', methods=['POST'])
+@login_required
+def update_profile(user_id):
+    # Apenas permite usuário editar seu próprio perfil
+    if session.get('user_id') != user_id:
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    data = request.json
+    user = User.query.get_or_404(user_id)
+    
+    # Verificar se username já existe (exceto para o próprio usuário)
+    existing_user = User.query.filter(
+        User.username == data['username'],
+        User.id != user_id
+    ).first()
+    if existing_user:
+        return jsonify({'success': False, 'message': 'Nome de usuário já existe'})
+    
+    # Verificar se email já existe (exceto para o próprio usuário)
+    existing_user = User.query.filter(
+        User.email == data['email'],
+        User.id != user_id
+    ).first()
+    if existing_user:
+        return jsonify({'success': False, 'message': 'Email já está em uso'})
+    
+    user.username = data['username']
+    user.email = data['email']
+    
+    # Atualizar senha apenas se fornecida
+    if data.get('password'):
+        user.password = data['password']  # Lembre-se de implementar hash
+    
+    try:
+        db.session.commit()
+        return jsonify({'success': True})
+    except:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Erro ao atualizar perfil'})
 
 if __name__ == '__main__':
     init_db()

@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="profile-wrapper">
+                <div class="profile-header">
+                    <div class="d-flex align-items-center mb-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-icon me-3">
+                            <i class="bi bi-arrow-left"></i>
+                        </a>
+                        <div>
+                            <h4 class="mb-1">Meu Perfil</h4>
+                            <p class="text-muted mb-0">Gerencie suas informações</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-content">
+                    <div class="text-center mb-4">
+                        <div class="position-relative d-inline-block">
+                            <img src="{{ user.profile_image or 'https://ui-avatars.com/api/?name=' + user.username }}" 
+                                 class="rounded-circle profile-avatar" 
+                                 width="100" 
+                                 height="100"
+                                 alt="{{ user.username }}">
+                            <button class="btn btn-sm btn-light edit-avatar position-absolute"
+                                    style="right: 0; bottom: 0;"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editAvatarModal"
+                                    data-user-id="{{ user.id }}"
+                                    data-current-image="{{ user.profile_image }}">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>
+                        </div>
+                        <h5 class="mt-3 mb-1">{{ user.username }}</h5>
+                        <p class="text-muted">{{ user.role }}</p>
+                    </div>
+
+                    <div class="profile-info">
+                        <button class="btn btn-primary w-100 mb-3 edit-profile"
+                                data-user-id="{{ user.id }}"
+                                data-username="{{ user.username }}"
+                                data-email="{{ user.email }}"
+                                data-role="{{ user.role }}"
+                                data-is-active="{{ user.is_active }}">
+                            <i class="bi bi-pencil me-2"></i>
+                            Editar Perfil
+                        </button>
+
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="text-muted small">Email</label>
+                                    <div>{{ user.email }}</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="text-muted small">Status</label>
+                                    <div>
+                                        <span class="status-badge {% if user.is_active %}active{% else %}inactive{% endif %}">
+                                            {{ 'Ativo' if user.is_active else 'Inativo' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-muted small">Membro desde</label>
+                                    <div>{{ user.created_at.strftime('%d/%m/%Y') }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição de Avatar -->
+<div class="modal fade" id="editAvatarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Alterar Foto do Perfil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editAvatarForm">
+                    <input type="hidden" id="avatarUserId">
+                    <div class="mb-3">
+                        <label class="form-label">URL da Imagem</label>
+                        <input type="url" class="form-control" id="profileImage" 
+                               placeholder="https://exemplo.com/imagem.jpg">
+                        <div class="form-text">
+                            Deixe em branco para usar o avatar padrão com as iniciais.
+                        </div>
+                    </div>
+                    <div class="avatar-preview text-center mt-3">
+                        <img src="" alt="Preview" class="rounded-circle" 
+                             style="width: 100px; height: 100px; object-fit: cover;">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveAvatar">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição de Perfil -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Perfil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editProfileForm">
+                    <input type="hidden" id="profileUserId">
+                    <div class="mb-3">
+                        <label class="form-label">Nome de Usuário</label>
+                        <input type="text" class="form-control" id="profileUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="profileEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nova Senha (opcional)</label>
+                        <input type="password" class="form-control" id="profilePassword" 
+                               placeholder="Deixe em branco para manter a senha atual">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveProfile">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.profile-wrapper {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.profile-header {
+    padding: 1.5rem;
+}
+
+.profile-content {
+    padding: 1.5rem;
+    background-color: #f8fafc;
+    border-radius: 1rem;
+}
+
+.profile-avatar {
+    border: 3px solid white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    object-fit: cover;
+}
+
+/* Reutilizar outros estilos do members.html */
+</style>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Editar avatar
+    const editAvatarModal = document.getElementById('editAvatarModal');
+    editAvatarModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const userId = button.getAttribute('data-user-id');
+        const currentImage = button.getAttribute('data-current-image');
+        
+        document.getElementById('avatarUserId').value = userId;
+        document.getElementById('profileImage').value = 
+            currentImage && !currentImage.includes('ui-avatars.com') ? currentImage : '';
+        
+        document.querySelector('.avatar-preview img').src = currentImage;
+    });
+
+    // Preview em tempo real
+    document.getElementById('profileImage').addEventListener('input', function() {
+        const imageUrl = this.value;
+        const username = document.getElementById('profileUsername').value;
+        const previewImg = document.querySelector('.avatar-preview img');
+        
+        previewImg.src = imageUrl || `https://ui-avatars.com/api/?name=${username}`;
+    });
+
+    // Salvar avatar
+    document.getElementById('saveAvatar').addEventListener('click', function() {
+        const userId = document.getElementById('avatarUserId').value;
+        const imageUrl = document.getElementById('profileImage').value;
+        
+        fetch(`/user/update_avatar/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                profile_image: imageUrl
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(editAvatarModal);
+                modal.hide();
+                location.reload();
+            } else {
+                alert('Erro ao atualizar avatar');
+            }
+        });
+    });
+
+    // Editar perfil
+    const editProfileModal = document.getElementById('editProfileModal');
+    
+    document.querySelector('.edit-profile').addEventListener('click', function() {
+        const userId = this.getAttribute('data-user-id');
+        const username = this.getAttribute('data-username');
+        const email = this.getAttribute('data-email');
+        
+        const modal = new bootstrap.Modal(editProfileModal);
+        modal.show();
+        
+        document.getElementById('profileUserId').value = userId;
+        document.getElementById('profileUsername').value = username;
+        document.getElementById('profileEmail').value = email;
+    });
+    
+    // Salvar perfil
+    document.getElementById('saveProfile').addEventListener('click', function() {
+        const userId = document.getElementById('profileUserId').value;
+        const data = {
+            username: document.getElementById('profileUsername').value,
+            email: document.getElementById('profileEmail').value,
+            password: document.getElementById('profilePassword').value
+        };
+        
+        fetch(`/user/update_profile/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(editProfileModal);
+                modal.hide();
+                location.reload();
+            } else {
+                alert(data.message || 'Erro ao atualizar perfil');
+            }
+        });
+    });
+});
+</script>
+{% endblock scripts %} 

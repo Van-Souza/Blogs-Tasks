@@ -1,119 +1,152 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="card shadow-lg border-0 rounded-3 mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center" 
-             style="background: linear-gradient(45deg, #6c757d, #495057); border-radius: 12px 12px 0 0;">
-            <h2 class="mb-0 text-white">
-                <i class="bi bi-archive-fill"></i> Tarefas Arquivadas
-            </h2>
-            <a href="{{ url_for('index') }}" class="btn btn-light">
-                <i class="bi bi-arrow-left"></i> Voltar
-            </a>
+<div class="container mt-5">
+    <div class="archived-wrapper">
+        <div class="archived-header">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h4 class="mb-1">Tarefas Arquivadas</h4>
+                    <p class="text-muted mb-0">Histórico de tarefas concluídas</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-light">
+                        <i class="bi bi-arrow-left"></i> Voltar
+                    </a>
+                </div>
+            </div>
         </div>
-        
-        <!-- Filtros -->
-        <div class="card-body border-bottom">
-            <form method="GET" class="row g-3">
-                <div class="col-md-3">
-                    <input type="text" class="form-control" name="search" 
-                           placeholder="🔍 Pesquisar tarefas..." value="{{ search }}">
-                </div>
-                <div class="col-md-2">
-                    <select class="form-select" name="status">
-                        <option value="">📊 Todos os status</option>
-                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>⏳ Pendente</option>
-                        <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>🔄 Em andamento</option>
-                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>✅ Concluída</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <select class="form-select" name="priority">
-                        <option value="">🎯 Todas as prioridades</option>
-                        <option value="1" {% if priority_filter == 1 %}selected{% endif %}>🔴 Alta</option>
-                        <option value="2" {% if priority_filter == 2 %}selected{% endif %}>🟡 Média</option>
-                        <option value="3" {% if priority_filter == 3 %}selected{% endif %}>🔵 Baixa</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select" name="user">
-                        <option value="">👥 Todos os usuários</option>
-                        {% for user in users %}
-                        <option value="{{ user.id }}" {% if user_filter == user.id %}selected{% endif %}>
-                            👤 {{ user.username }}
-                        </option>
+
+        <div class="archived-content">
+            {% if tasks %}
+            <div class="table-responsive rounded-3 bg-white shadow-sm">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr class="table-light">
+                            <th class="text-uppercase fs-12">Título</th>
+                            <th class="text-uppercase fs-12">Status</th>
+                            <th class="text-uppercase fs-12">Prioridade</th>
+                            <th class="text-uppercase fs-12">Atribuído</th>
+                            <th class="text-uppercase fs-12">Data Conclusão</th>
+                            <th class="text-uppercase fs-12">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-text me-2 text-muted"></i>
+                                    {{ task.title }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge archived">Arquivado</span>
+                            </td>
+                            <td>
+                                <span class="priority-badge {% if task.priority == 1 %}high{% elif task.priority == 2 %}medium{% else %}low{% endif %}">
+                                    {{ "Alta" if task.priority == 1 else "Média" if task.priority == 2 else "Baixa" }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if task.assignee %}
+                                    <img src="{{ task.assignee.profile_image or 'https://ui-avatars.com/api/?name=' + task.assignee.username }}" 
+                                         class="rounded-circle" width="24" height="24" alt="">
+                                    {{ task.assignee.username }}
+                                    {% else %}
+                                    <span class="text-muted">Não atribuído</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="text-muted">
+                                    {{ task.completion_date.strftime('%d/%m/%Y %H:%M') if task.completion_date else "-" }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-success reactivate-task"
+                                        data-task-id="{{ task.id }}"
+                                        title="Reativar tarefa">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            </td>
+                        </tr>
                         {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-secondary w-100">
-                        <i class="bi bi-search"></i> Filtrar
-                    </button>
-                </div>
-            </form>
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-archive text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-3">Nenhuma tarefa arquivada encontrada.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
-
-    <!-- Lista de Tarefas -->
-    <div class="row">
-        {% for task in tasks.items %}
-        <div class="col-12 mb-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <h5 class="card-title mb-1">{{ task.title }}</h5>
-                        <button class="btn btn-sm btn-outline-success reactivate-task" 
-                                data-task-id="{{ task.id }}">
-                            <i class="bi bi-arrow-counterclockwise"></i> Reativar
-                        </button>
-                    </div>
-                    <p class="text-muted small mb-2">
-                        <i class="bi bi-person-circle"></i> 
-                        {{ task.assignee.username if task.assignee else 'Não atribuído' }}
-                    </p>
-                    <p class="card-text">
-                        <span class="badge {% if task.priority == 1 %}bg-danger
-                                         {% elif task.priority == 2 %}bg-warning
-                                         {% else %}bg-info{% endif %}">
-                            {% if task.priority == 1 %}🔴 Alta
-                            {% elif task.priority == 2 %}🟡 Média
-                            {% else %}🔵 Baixa{% endif %}
-                        </span>
-                        <span class="badge bg-secondary ms-2">{{ task.status | replace('_', ' ') | title }}</span>
-                        {% if task.deadline %}
-                        <span class="text-muted ms-2">
-                            <i class="bi bi-calendar"></i> {{ task.deadline.strftime('%d/%m/%Y') }}
-                        </span>
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-        </div>
-        {% else %}
-        <div class="col-12">
-            <div class="alert alert-info">
-                Nenhuma tarefa arquivada encontrada.
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    <!-- Paginação -->
-    {% if tasks.pages > 1 %}
-    <nav aria-label="Navegação de páginas">
-        <ul class="pagination justify-content-center">
-            {% for page in range(1, tasks.pages + 1) %}
-            <li class="page-item {% if page == tasks.page %}active{% endif %}">
-                <a class="page-link" href="{{ url_for('archived_tasks', page=page, status=status_filter, priority=priority_filter, user=user_filter, search=search) }}">
-                    {{ page }}
-                </a>
-            </li>
-            {% endfor %}
-        </ul>
-    </nav>
-    {% endif %}
 </div>
+
+<style>
+.archived-wrapper {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.archived-header {
+    padding: 1.5rem;
+}
+
+.archived-content {
+    padding: 1.5rem;
+    background-color: #f8fafc;
+    border-radius: 1rem;
+}
+
+.status-badge {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-badge.archived {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+.priority-badge {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.priority-badge.high {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.priority-badge.medium {
+    background-color: #fefce8;
+    color: #ca8a04;
+}
+
+.priority-badge.low {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.fs-12 {
+    font-size: 0.75rem;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -123,17 +156,20 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.reactivate-task').forEach(button => {
         button.addEventListener('click', function() {
             if (confirm('Tem certeza que deseja reativar esta tarefa?')) {
-                const taskId = this.dataset.taskId;
+                const taskId = this.getAttribute('data-task-id');
 
                 fetch(`/task/reactivate/${taskId}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         location.reload();
                     } else {
-                        alert(data.message || 'Erro ao reativar tarefa');
+                        alert('Erro ao reativar tarefa');
                     }
                 });
             }

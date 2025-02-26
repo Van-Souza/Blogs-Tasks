@@ -39,6 +39,7 @@
                                              width="32" 
                                              height="32"
                                              alt="{{ user.username }}">
+                                        {% if session.role == 'admin' or session.user_id == user.id %}
                                         <button class="btn btn-sm btn-light edit-avatar position-absolute"
                                                 style="right: -5px; bottom: -5px;"
                                                 data-bs-toggle="modal"
@@ -47,6 +48,7 @@
                                                 data-current-image="{{ user.profile_image }}">
                                             <i class="bi bi-pencil-fill fs-12"></i>
                                         </button>
+                                        {% endif %}
                                     </div>
                                     <span class="fw-medium">{{ user.username }}</span>
                                 </div>
@@ -64,6 +66,21 @@
                             </td>
                             <td>
                                 <div class="d-flex gap-2">
+                                    {% if session.user_id == user.id %}
+                                    <!-- Botão Editar Perfil para o próprio usuário -->
+                                    <button class="btn btn-sm btn-outline-info edit-profile"
+                                            data-user-id="{{ user.id }}"
+                                            data-username="{{ user.username }}"
+                                            data-email="{{ user.email }}"
+                                            data-role="{{ user.role }}"
+                                            data-is-active="{{ user.is_active }}"
+                                            title="Editar seu perfil">
+                                        <i class="bi bi-person-gear"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    <!-- Botões de admin -->
+                                    {% if session.role == 'admin' %}
                                     <button class="btn btn-sm btn-outline-primary edit-user"
                                             data-user-id="{{ user.id }}"
                                             data-username="{{ user.username }}"
@@ -79,6 +96,7 @@
                                             title="{{ 'Inativar' if user.is_active else 'Ativar' }} usuário">
                                         <i class="bi {% if user.is_active %}bi-person-x{% else %}bi-person-check{% endif %}"></i>
                                     </button>
+                                    {% endif %}
                                     {% endif %}
                                 </div>
                             </td>
@@ -161,6 +179,40 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="saveAvatar">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição de Perfil -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Perfil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editProfileForm">
+                    <input type="hidden" id="profileUserId">
+                    <div class="mb-3">
+                        <label class="form-label">Nome de Usuário</label>
+                        <input type="text" class="form-control" id="profileUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="profileEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nova Senha (opcional)</label>
+                        <input type="password" class="form-control" id="profilePassword" 
+                               placeholder="Deixe em branco para manter a senha atual">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveProfile">Salvar</button>
             </div>
         </div>
     </div>
@@ -431,6 +483,53 @@ document.addEventListener('DOMContentLoaded', function() {
                 location.reload();
             } else {
                 alert('Erro ao atualizar avatar');
+            }
+        });
+    });
+
+    // Editar perfil (para usuários)
+    const editProfileModal = document.getElementById('editProfileModal');
+    
+    document.querySelectorAll('.edit-profile').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.getAttribute('data-user-id');
+            const username = this.getAttribute('data-username');
+            const email = this.getAttribute('data-email');
+            
+            // Abrir modal
+            const modal = new bootstrap.Modal(editProfileModal);
+            modal.show();
+            
+            document.getElementById('profileUserId').value = userId;
+            document.getElementById('profileUsername').value = username;
+            document.getElementById('profileEmail').value = email;
+        });
+    });
+    
+    // Salvar alterações do perfil
+    document.getElementById('saveProfile').addEventListener('click', function() {
+        const userId = document.getElementById('profileUserId').value;
+        const data = {
+            username: document.getElementById('profileUsername').value,
+            email: document.getElementById('profileEmail').value,
+            password: document.getElementById('profilePassword').value
+        };
+        
+        fetch(`/user/update_profile/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(editProfileModal);
+                modal.hide();
+                location.reload();
+            } else {
+                alert(data.message || 'Erro ao atualizar perfil');
             }
         });
     });

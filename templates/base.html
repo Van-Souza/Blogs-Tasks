@@ -4,49 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Gerenciador de Blogs{% endblock %}</title>
+    
+    <!-- CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-    <link rel="icon" href="https://www.flaticon.com/br/icones-gratis/lista" type="image/x-icon">
+    
     <style>
     :root {
-        --primary-color: #6366f1;
-        --secondary-color: #818cf8;
-        --border-radius: 0.5rem;
-        --danger-color: #dc3545;
+        --primary-color: #4f46e5;
+        --secondary-color: #6366f1;
+        --success-color: #22c55e;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+        --info-color: #3b82f6;
+        --background-color: #f9fafb;
+        --text-color: #1f2937;
+        --border-radius: 0.75rem;
     }
 
-    /* ... outros estilos ... */
+    body {
+        background-color: var(--background-color);
+        color: var(--text-color);
+        font-family: 'Inter', system-ui, sans-serif;
+    }
 
-    /* Ajustes do header */
+    /* Navbar Styles */
     .navbar {
-        padding: 0.75rem 1rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        padding: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
     .navbar-brand {
-        font-weight: 500;
+        font-weight: 600;
         font-size: 1.25rem;
+        color: white !important;
     }
 
-    .user-info {
-        display: flex;
-        align-items: center;
-    }
-
-    .user-info img {
-        border: 2px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-light {
+    .nav-link {
+        color: rgba(255, 255, 255, 0.9) !important;
         font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--border-radius);
+        transition: all 0.3s ease;
     }
 
-    .btn-light:hover {
-        background-color: #f8f9fa;
-        border-color: #f8f9fa;
+    .nav-link:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-1px);
+    }
+
+    /* Card Styles */
+    .card {
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+        padding: 1.25rem;
+    }
+
+    /* Button Styles */
+    .btn {
+        border-radius: var(--border-radius);
+        padding: 0.5rem 1.25rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Alert Styles */
+    .alert {
+        border: none;
+        border-radius: var(--border-radius);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Form Styles */
+    .form-control, .form-select {
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    }
+
+    /* Table Styles */
+    .table {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+    }
+
+    .table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+    }
+
+    /* Badge Styles */
+    .badge {
+        padding: 0.5em 1em;
+        font-weight: 500;
+        border-radius: 2rem;
+    }
+
+    /* Dropdown Styles */
+    .dropdown-menu {
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .dropdown-item {
+        padding: 0.75rem 1.25rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .dropdown-item:hover {
+        background-color: #f3f4f6;
     }
     </style>
 </head>

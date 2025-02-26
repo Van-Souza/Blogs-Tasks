@@ -9,7 +9,6 @@ import os
 from functools import wraps
 from pytz import timezone
 from flask_migrate import Migrate
-from apscheduler.schedulers.background import BackgroundScheduler
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
 brasilia_tz = timezone('America/Sao_Paulo')
@@ -77,7 +76,6 @@ class Task(db.Model):
     
     status = db.Column(db.String(20), default='pending')
     completion_date = db.Column(db.DateTime)  # Data quando foi marcada como concluída
-    auto_pending_days = db.Column(db.Integer, default=30)  # Dias até voltar para pendente
     priority = db.Column(db.Integer, default=3)
     deadline = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
@@ -225,16 +223,14 @@ def update_task(task_id):
         elif data['status'] == Task.STATUS_WAITING_APPROVAL:
             log_message = "⏳ Enviada para revisão"
         elif data['status'] == Task.STATUS_COMPLETED:
-            # Guardar o usuário que estava atribuído para o log
             old_user = User.query.get(task.assigned_to) if task.assigned_to else None
-            
-            # Remover atribuição quando concluir
             task.assigned_to = None
             log_message = f"✅ Tarefa concluída por {old_user.username if old_user else 'Sistema'}"
         elif data['status'] == Task.STATUS_IN_PROGRESS and old_status == Task.STATUS_WAITING_APPROVAL:
             log_message = "⏮️ Tarefa retornada para revisão"
         elif data['status'] == Task.STATUS_PENDING and old_status == Task.STATUS_COMPLETED:
-            log_message = "🔄 Tarefa voltou para pendente automaticamente"
+            log_message = "🔄 Tarefa reaberta manualmente"
+            task.completion_date = None  # Limpa a data de conclusão
         
         task.status = data['status']
         if data['status'] == Task.STATUS_COMPLETED:
@@ -257,11 +253,15 @@ def update_task(task_id):
 
     if 'priority' in data and session['role'] == 'admin':
         old_priority = task.priority
-        task.priority = data['priority']
+        task.priority = int(data['priority'])
         
         # Log de mudança de prioridade
-        priorities = {1: "Alta 🔴", 2: "Média 🟡", 3: "Baixa 🔵"}
-        log_message = f"🎯 Prioridade alterada para {priorities[task.priority]}"
+        priority_labels = {
+            1: "Alta 🔴",
+            2: "Média 🟡", 
+            3: "Baixa 🔵"
+        }
+        log_message = f"🎯 Prioridade alterada para {priority_labels[task.priority]}"
 
     if 'deadline' in data and session['role'] == 'admin':
         old_deadline = task.deadline
@@ -846,29 +846,6 @@ def get_stats():
         'in_progress': in_progress,
         'waiting_approval': waiting_approval
     })
-
-# Tarefa para verificar tarefas concluídas antigas
-def check_completed_tasks():
-    with app.app_context():
-        tasks = Task.query.filter_by(
-            status=Task.STATUS_COMPLETED,
-            is_active=True
-        ).all()
-        
-        now = datetime.now(brasilia_tz)
-        for task in tasks:
-            if task.completion_date:
-                days_passed = (now - task.completion_date).days
-                if days_passed >= task.auto_pending_days:
-                    task.status = Task.STATUS_PENDING
-                    task.completion_date = None
-        
-        db.session.commit()
-
-# Agendar verificação diária
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=check_completed_tasks, trigger="interval", days=1)
-scheduler.start()
 
 # Initialize database
 @app.cli.command('init-db')

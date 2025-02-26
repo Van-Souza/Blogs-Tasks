@@ -43,7 +43,8 @@
     </a>
 </div>
 
-<!-- Filtros -->
+<!-- Filtros - Apenas para Administradores -->
+{% if session.role == 'admin' %}
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-body bg-light rounded-3">
         <form method="GET" class="row g-3">
@@ -106,6 +107,25 @@
         </form>
     </div>
 </div>
+{% else %}
+<!-- Barra de pesquisa simples para revisores -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body bg-light rounded-3">
+        <form method="GET" class="row g-3">
+            <div class="col-12">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" 
+                           class="form-control" 
+                           name="search" 
+                           placeholder="Pesquisar minhas tarefas..." 
+                           value="{{ search }}">
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 <!-- Lista de Tarefas -->
 <div class="card shadow-lg border-0">
@@ -205,10 +225,16 @@
                                 </div>
                             
                             {% elif task.status == 'completed' %}
-                                <span class="badge bg-success">✅ Concluída</span>
-                                <small class="text-muted">
-                                    (Volta para pendente em {{ task.auto_pending_days }} dias)
-                                </small>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-success">✅ Concluída</span>
+                                    {% if session.role == 'admin' %}
+                                        <button class="btn btn-sm btn-outline-warning" 
+                                                onclick="updateTaskStatus({{ task.id }}, 'pending')"
+                                                title="Retornar para pendente">
+                                            <i class="bi bi-arrow-repeat"></i> Reabrir
+                                        </button>
+                                    {% endif %}
+                                </div>
                             {% endif %}
                         </div>
                     </td>
@@ -332,21 +358,6 @@
                             <option value="2">🟡 Média</option>
                             <option value="3">🔵 Baixa</option>
                         </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Dias até voltar para pendente</label>
-                        <div class="input-group">
-                            <input type="number" 
-                                   class="form-control" 
-                                   id="taskAutoPendingDays" 
-                                   min="1" 
-                                   max="365"
-                                   placeholder="30">
-                            <span class="input-group-text">dias</span>
-                        </div>
-                        <small class="text-muted">
-                            Após este período, tarefas concluídas voltarão automaticamente para pendente
-                        </small>
                     </div>
                     {% endif %}
                 </form>

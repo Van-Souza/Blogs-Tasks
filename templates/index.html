@@ -184,57 +184,61 @@
                         </div>
                     </td>
                     <td>
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="status-wrapper">
                             {% if task.status == 'pending' %}
-                                <span class="badge bg-secondary">⏳ Pendente</span>
+                                <div class="status-pill pending">
+                                    <span>Pendente</span>
+                                </div>
                                 {% if task.assigned_to == session.user_id %}
-                                    <button class="btn btn-sm btn-outline-warning" 
+                                    <button class="action-button start"
                                             onclick="updateTaskStatus({{ task.id }}, 'in_progress')"
                                             title="Iniciar trabalho na tarefa">
-                                        <i class="bi bi-play-fill"></i> Iniciar
+                                        Iniciar
                                     </button>
                                 {% endif %}
                             
                             {% elif task.status == 'in_progress' %}
-                                <span class="badge bg-warning">🔄 Em Andamento</span>
+                                <div class="status-pill in-progress">
+                                    <span>Em Andamento</span>
+                                </div>
                                 {% if task.assigned_to == session.user_id %}
-                                    <button class="btn btn-sm btn-outline-info" 
+                                    <button class="action-button review"
                                             onclick="updateTaskStatus({{ task.id }}, 'waiting_approval')"
                                             title="Enviar para revisão">
-                                        <i class="bi bi-send"></i> Enviar para Revisão
+                                        Enviar
                                     </button>
                                 {% endif %}
                             
                             {% elif task.status == 'waiting_approval' %}
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-info">⌛ Aguardando Revisão</span>
-                                    {% if session.role == 'admin' %}
-                                        <div class="approval-actions">
-                                            <button class="btn btn-sm btn-outline-success" 
-                                                    onclick="updateTaskStatus({{ task.id }}, 'completed')"
-                                                    title="Aprovar tarefa">
-                                                <i class="bi bi-check-lg"></i> Aprovar
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" 
-                                                    onclick="updateTaskStatus({{ task.id }}, 'in_progress')"
-                                                    title="Retornar para revisão">
-                                                <i class="bi bi-arrow-return-left"></i> Retornar
-                                            </button>
-                                        </div>
-                                    {% endif %}
+                                <div class="status-pill waiting">
+                                    <span>Aguardando Revisão</span>
                                 </div>
+                                {% if session.role == 'admin' %}
+                                    <div class="approval-buttons">
+                                        <button class="action-button approve"
+                                                onclick="updateTaskStatus({{ task.id }}, 'completed')"
+                                                title="Aprovar tarefa">
+                                            Aprovar
+                                        </button>
+                                        <button class="action-button return"
+                                                onclick="updateTaskStatus({{ task.id }}, 'in_progress')"
+                                                title="Retornar para revisão">
+                                            Retornar
+                                        </button>
+                                    </div>
+                                {% endif %}
                             
                             {% elif task.status == 'completed' %}
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-success">✅ Concluída</span>
-                                    {% if session.role == 'admin' %}
-                                        <button class="btn btn-sm btn-outline-warning" 
-                                                onclick="updateTaskStatus({{ task.id }}, 'pending')"
-                                                title="Retornar para pendente">
-                                            <i class="bi bi-arrow-repeat"></i> Reabrir
-                                        </button>
-                                    {% endif %}
+                                <div class="status-pill completed">
+                                    <span>Concluída</span>
                                 </div>
+                                {% if session.role == 'admin' %}
+                                    <button class="action-button reopen"
+                                            onclick="updateTaskStatus({{ task.id }}, 'pending')"
+                                            title="Retornar para pendente">
+                                        Reabrir
+                                    </button>
+                                {% endif %}
                             {% endif %}
                         </div>
                     </td>
@@ -929,6 +933,124 @@ socket.on('notification', function(data) {
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.5px;
+}
+
+/* Status Styles */
+.status-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-pill {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Botões de aprovação lado a lado */
+.approval-buttons {
+    display: inline-flex;
+    gap: 0.4rem;
+    margin-left: 0.2rem;
+}
+
+/* Cores dos status */
+.status-pill.pending {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+.status-pill.in-progress {
+    background-color: #fff7ed;
+    color: #ea580c;
+}
+
+.status-pill.waiting {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.status-pill.completed {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
+/* Adicionar ao CSS existente */
+.action-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+/* Botão Iniciar */
+.action-button.start {
+    color: #ea580c;
+    border-color: #ea580c;
+    background-color: #fff7ed;
+}
+.action-button.start:hover {
+    background-color: #ea580c;
+    color: white;
+}
+
+/* Botão Enviar para Revisão */
+.action-button.review {
+    color: #2563eb;
+    border-color: #2563eb;
+    background-color: #eff6ff;
+}
+.action-button.review:hover {
+    background-color: #2563eb;
+    color: white;
+}
+
+/* Botão Aprovar */
+.action-button.approve {
+    color: #16a34a;
+    border-color: #16a34a;
+    background-color: #f0fdf4;
+}
+.action-button.approve:hover {
+    background-color: #16a34a;
+    color: white;
+}
+
+/* Botão Retornar */
+.action-button.return {
+    color: #dc2626;
+    border-color: #dc2626;
+    background-color: #fef2f2;
+}
+.action-button.return:hover {
+    background-color: #dc2626;
+    color: white;
+}
+
+/* Botão Reabrir */
+.action-button.reopen {
+    color: #ea580c;
+    border-color: #ea580c;
+    background-color: #fff7ed;
+}
+.action-button.reopen:hover {
+    background-color: #ea580c;
+    color: white;
+}
+
+/* Efeito hover comum para todos os botões */
+.action-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 </style>
 {% endblock %}

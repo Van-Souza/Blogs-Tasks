@@ -905,6 +905,90 @@ def init_db():
             db.session.add(admin)
             db.session.commit()
 
+@app.route('/user/deactivate/<int:user_id>', methods=['POST'])
+@login_required
+def deactivate_user(user_id):
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    user = User.query.get_or_404(user_id)
+    # Impedir inativação do admin master
+    if user.username == 'admin':
+        return jsonify({'success': False, 'message': 'Não é possível inativar o administrador master'}), 403
+    
+    user.is_active = False
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+@app.route('/user/activate/<int:user_id>', methods=['POST'])
+@login_required
+def activate_user(user_id):
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    user = User.query.get_or_404(user_id)
+    user.is_active = True
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+@app.route('/user/create', methods=['POST'])
+@login_required
+def create_user():
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    data = request.json
+    
+    # Verificar se usuário já existe
+    if User.query.filter_by(username=data['username']).first():
+        return jsonify({'success': False, 'message': 'Nome de usuário já existe'})
+    
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({'success': False, 'message': 'Email já está em uso'})
+    
+    # Criar novo usuário
+    new_user = User(
+        username=data['username'],
+        email=data['email'],
+        password=data['password'],  # Lembre-se de implementar hash da senha
+        role=data['role'],
+        is_active=True,
+        created_at=datetime.now(brasilia_tz),
+        profile_image=f'https://ui-avatars.com/api/?name={data["username"]}'
+    )
+    
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Erro ao criar usuário'})
+
+@app.route('/user/update_avatar/<int:user_id>', methods=['POST'])
+@login_required
+def update_avatar(user_id):
+    if session.get('role') != 'admin' and session.get('user_id') != user_id:
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    data = request.json
+    user = User.query.get_or_404(user_id)
+    
+    # Se não houver URL, usar avatar padrão
+    if not data.get('profile_image'):
+        user.profile_image = f'https://ui-avatars.com/api/?name={user.username}'
+    else:
+        user.profile_image = data['profile_image']
+    
+    try:
+        db.session.commit()
+        return jsonify({'success': True})
+    except:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Erro ao atualizar avatar'})
+
 if __name__ == '__main__':
     init_db()
     socketio.run(app, debug=True)

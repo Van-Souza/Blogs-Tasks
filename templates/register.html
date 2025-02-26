@@ -1,65 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-4">
+<div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-lg border-0 rounded-3">
-                <div class="card-header text-white"
-                     style="background: linear-gradient(45deg, #4158D0, #C850C0); border-radius: 12px 12px 0 0;">
-                    <h3 class="mb-0">
-                        <i class="bi bi-person-plus-fill"></i> Novo Membro
-                    </h3>
+        <div class="col-md-6">
+            <div class="register-wrapper">
+                <div class="register-header">
+                    <div class="d-flex align-items-center mb-4">
+                        <a href="{{ url_for('members') }}" class="btn btn-icon me-3">
+                            <i class="bi bi-arrow-left"></i>
+                        </a>
+                        <div>
+                            <h4 class="mb-1">Novo Membro</h4>
+                            <p class="text-muted mb-0">Cadastrar novo usuário no sistema</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body p-4">
-                    <form method="POST" class="needs-validation" novalidate>
+                <div class="register-content">
+                    <form method="POST" class="needs-validation" novalidate autocomplete="off">
                         <div class="mb-3">
-                            <label class="form-label">Nome de Usuário</label>
-                            <input type="text" class="form-control" name="username" required>
-                            <div class="invalid-feedback">
-                                Por favor, informe um nome de usuário.
-                            </div>
+                            <label class="form-label small text-muted">Nome de Usuário</label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   name="username" 
+                                   placeholder="Digite o nome de usuário"
+                                   required>
                         </div>
-                        
                         <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" name="email" required>
-                            <div class="invalid-feedback">
-                                Por favor, informe um email válido.
-                            </div>
+                            <label class="form-label small text-muted">Email</label>
+                            <input type="email" 
+                                   class="form-control form-control-lg" 
+                                   name="email" 
+                                   placeholder="Digite o email"
+                                   required>
                         </div>
-                        
                         <div class="mb-3">
-                            <label class="form-label">Senha</label>
-                            <input type="password" class="form-control" name="password" required>
-                            <div class="invalid-feedback">
-                                Por favor, informe uma senha.
-                            </div>
+                            <label class="form-label small text-muted">Senha</label>
+                            <input type="password" 
+                                   class="form-control form-control-lg" 
+                                   name="password" 
+                                   placeholder="Digite a senha"
+                                   required>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Função</label>
-                            <select class="form-select" name="role" required>
-                                <option value="reviewer">Revisor</option>
+                        <div class="mb-4">
+                            <label class="form-label small text-muted">Função</label>
+                            <select class="form-select form-select-lg" name="role" required>
                                 <option value="admin">Administrador</option>
+                                <option value="reviewer">Revisor</option>
                             </select>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Imagem de Perfil (URL)</label>
-                            <input type="url" class="form-control" name="profile_image" 
-                                   placeholder="https://exemplo.com/imagem.jpg">
-                            <div class="form-text">
-                                Deixe em branco para usar uma imagem padrão.
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-person-plus"></i> Cadastrar
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                Criar Conta
                             </button>
-                            <a href="{{ url_for('members') }}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Voltar
-                            </a>
                         </div>
                     </form>
                 </div>
@@ -69,22 +61,68 @@
 </div>
 
 <style>
-.card {
-    transition: all 0.3s ease;
+.register-wrapper {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.register-header {
+    padding: 1.5rem;
+}
+
+.register-content {
+    padding: 1.5rem;
+    background-color: #f8fafc;
+    border-radius: 1rem;
+}
+
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: #e2e8f0;
+    color: #475569;
+    transform: translateX(-2px);
+}
+
+.form-control, .form-select {
+    border: 2px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s;
 }
 
 .form-control:focus, .form-select:focus {
-    box-shadow: 0 0 0 0.25rem rgba(65, 88, 208, 0.25);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
 }
 
 .btn-primary {
-    background: linear-gradient(45deg, #4158D0, #C850C0);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     border: none;
+    transition: all 0.3s;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(45deg, #3147B0, #B740B0);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 </style>
 

@@ -3,75 +3,91 @@
 <div class="container-fluid mt-4">
     <div class="card shadow-lg border-0 rounded-3 mb-4">
         <div class="card-header d-flex justify-content-between align-items-center" 
-             style="background: linear-gradient(45deg, #4158D0, #C850C0); border-radius: 12px 12px 0 0;">
-            <h2 class="mb-0 text-white">
-                <i class="bi bi-people-fill"></i> Membros da Equipe
-            </h2>
-            <a href="{{ url_for('register') }}" class="btn btn-light">
-                <i class="bi bi-person-plus-fill"></i> Novo Membro
+             style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); border-radius: 1rem 1rem 0 0;">
+            <div class="d-flex align-items-center">
+                <h5 class="mb-0 text-white d-flex align-items-center">
+                    <i class="bi bi-people-fill me-2"></i>
+                    Membros
+                    <span class="badge bg-white text-primary ms-2">{{ users|length }}</span>
+                </h5>
+            </div>
+            <a href="{{ url_for('register') }}" class="btn btn-light btn-sm d-flex align-items-center gap-2">
+                <i class="bi bi-person-plus"></i> Novo Membro
             </a>
         </div>
-    </div>
 
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        {% for user in users %}
-        <div class="col">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="position-relative me-3">
-                            <img src="{{ user.profile_image or 'https://ui-avatars.com/api/?name=' + user.username }}" 
-                                 alt="{{ user.username }}" 
-                                 class="rounded-circle profile-image"
-                                 style="width: 64px; height: 64px; object-fit: cover;">
-                            <button class="btn btn-sm btn-light edit-avatar position-absolute bottom-0 end-0"
-                                    data-user-id="{{ user.id }}"
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#editAvatarModal">
-                                <i class="bi bi-camera"></i>
-                            </button>
-                        </div>
-                        <div>
-                            <h5 class="card-title mb-1">
-                                {{ user.username }}
-                                {% if not user.is_active %}
-                                    <span class="badge bg-secondary">Inativo</span>
-                                {% endif %}
-                            </h5>
-                            <span class="badge {% if user.role == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
-                                {{ user.role | title }}
-                            </span>
-                        </div>
-                    </div>
-                    <p class="card-text">
-                        <i class="bi bi-envelope"></i> {{ user.email }}<br>
-                        <i class="bi bi-calendar-check"></i> Membro desde: {{ user.created_at.strftime('%d/%m/%Y') }}
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <button class="btn btn-sm btn-outline-primary edit-user" 
-                                data-user-id="{{ user.id }}"
-                                data-bs-toggle="modal" 
-                                data-bs-target="#editUserModal">
-                            <i class="bi bi-pencil"></i> Editar
-                        </button>
-                        {% if user.id != session.user_id %}
-                            {% if user.is_active %}
-                            <button class="btn btn-sm btn-outline-danger deactivate-user" 
-                                    data-user-id="{{ user.id }}">
-                                <i class="bi bi-person-x"></i> Desativar
-                            </button>
-                            {% else %}
-                            <button class="btn btn-sm btn-outline-success reactivate-user" 
-                                    data-user-id="{{ user.id }}">
-                                <i class="bi bi-person-check"></i> Reativar
-                            </button>
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
+        <div class="card-body p-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-uppercase fs-12">Usuário</th>
+                            <th class="text-uppercase fs-12">Email</th>
+                            <th class="text-uppercase fs-12">Função</th>
+                            <th class="text-uppercase fs-12">Status</th>
+                            <th class="text-uppercase fs-12">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="position-relative">
+                                        <img src="{{ user.profile_image or 'https://ui-avatars.com/api/?name=' + user.username }}" 
+                                             class="rounded-circle" 
+                                             width="32" 
+                                             height="32"
+                                             alt="{{ user.username }}">
+                                        <button class="btn btn-sm btn-light edit-avatar position-absolute"
+                                                style="right: -5px; bottom: -5px;"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editAvatarModal"
+                                                data-user-id="{{ user.id }}"
+                                                data-current-image="{{ user.profile_image }}">
+                                            <i class="bi bi-pencil-fill fs-12"></i>
+                                        </button>
+                                    </div>
+                                    <span class="fw-medium">{{ user.username }}</span>
+                                </div>
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                <span class="role-badge {% if user.role == 'admin' %}admin{% else %}user{% endif %}">
+                                    {{ user.role }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-badge {% if user.is_active %}active{% else %}inactive{% endif %}">
+                                    {{ 'Ativo' if user.is_active else 'Inativo' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-primary edit-user"
+                                            data-user-id="{{ user.id }}"
+                                            data-username="{{ user.username }}"
+                                            data-email="{{ user.email }}"
+                                            data-role="{{ user.role }}"
+                                            data-is-active="{{ user.is_active }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    {% if user.username != 'admin' %}
+                                    <button class="btn btn-sm {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %} toggle-status"
+                                            data-user-id="{{ user.id }}"
+                                            data-is-active="{{ user.is_active }}"
+                                            title="{{ 'Inativar' if user.is_active else 'Ativar' }} usuário">
+                                        <i class="bi {% if user.is_active %}bi-person-x{% else %}bi-person-check{% endif %}"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-        {% endfor %}
     </div>
 </div>
 
@@ -100,6 +116,12 @@
                             <option value="admin">Administrador</option>
                             <option value="reviewer">Revisor</option>
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="isActive">
+                            <label class="form-check-label" for="isActive">Usuário Ativo</label>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -183,16 +205,18 @@
 }
 
 .edit-avatar {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: white;
+    border: 1px solid #e5e7eb;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .position-relative:hover .edit-avatar {
@@ -200,8 +224,80 @@
 }
 
 .avatar-preview img {
-    border: 3px solid #eee;
+    border: 2px solid #e5e7eb;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Estilos gerais */
+.card {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-header {
+    padding: 1.25rem;
+}
+
+/* Estilos da tabela */
+.table thead th {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #64748b;
+    padding: 1rem;
+}
+
+.table tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* Badges personalizados */
+.role-badge {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.role-badge.admin {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.role-badge.user {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+.status-badge {
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
+.status-badge.inactive {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+/* Botões de ação */
+.btn-sm {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+}
+
+/* Utilitários */
+.fs-12 {
+    font-size: 0.75rem;
+}
+
+.fw-medium {
+    font-weight: 500;
 }
 </style>
 
@@ -212,30 +308,35 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Editar usuário
     const editUserModal = document.getElementById('editUserModal');
-    const editUserForm = document.getElementById('editUserForm');
 
     document.querySelectorAll('.edit-user').forEach(button => {
         button.addEventListener('click', function() {
-            const userId = this.dataset.userId;
-            const card = this.closest('.card');
-            const username = card.querySelector('.card-title').textContent;
-            const email = card.querySelector('.card-text').textContent.split('\n')[0].replace('✉️ ', '');
-            const role = card.querySelector('.badge').textContent.toLowerCase().trim();
+            const userId = this.getAttribute('data-user-id');
+            const username = this.getAttribute('data-username');
+            const email = this.getAttribute('data-email');
+            const role = this.getAttribute('data-role');
+            const isActive = this.getAttribute('data-is-active');
+
+            // Abrir modal
+            const modal = new bootstrap.Modal(editUserModal);
+            modal.show();
 
             document.getElementById('userId').value = userId;
             document.getElementById('username').value = username;
             document.getElementById('email').value = email;
             document.getElementById('role').value = role;
+            document.getElementById('isActive').checked = isActive === 'true';
         });
     });
 
-    // Salvar alterações
+    // Salvar alterações do usuário
     document.getElementById('saveUser').addEventListener('click', function() {
         const userId = document.getElementById('userId').value;
         const data = {
             username: document.getElementById('username').value,
             email: document.getElementById('email').value,
-            role: document.getElementById('role').value
+            role: document.getElementById('role').value,
+            is_active: document.getElementById('isActive').checked
         };
 
         fetch(`/user/update/${userId}`, {
@@ -248,6 +349,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                const modal = bootstrap.Modal.getInstance(editUserModal);
+                modal.hide();
                 location.reload();
             } else {
                 alert('Erro ao atualizar usuário');
@@ -255,42 +358,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Desativar usuário
-    document.querySelectorAll('.deactivate-user').forEach(button => {
+    // Toggle status do usuário (ativar/inativar)
+    document.querySelectorAll('.toggle-status').forEach(button => {
         button.addEventListener('click', function() {
-            if (confirm('Tem certeza que deseja desativar este usuário?')) {
-                const userId = this.dataset.userId;
+            const isActive = this.getAttribute('data-is-active') === 'True';
+            const action = isActive ? 'inativar' : 'ativar';
+            
+            if (confirm(`Tem certeza que deseja ${action} este usuário?`)) {
+                const userId = this.getAttribute('data-user-id');
 
-                fetch(`/user/delete/${userId}`, {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert(data.message || 'Erro ao desativar usuário');
+                fetch(`/user/${isActive ? 'deactivate' : 'activate'}/${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     }
-                });
-            }
-        });
-    });
-
-    // Reativar usuário
-    document.querySelectorAll('.reactivate-user').forEach(button => {
-        button.addEventListener('click', function() {
-            if (confirm('Tem certeza que deseja reativar este usuário?')) {
-                const userId = this.dataset.userId;
-
-                fetch(`/user/reactivate/${userId}`, {
-                    method: 'POST'
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         location.reload();
                     } else {
-                        alert(data.message || 'Erro ao reativar usuário');
+                        alert(`Erro ao ${action} usuário`);
                     }
                 });
             }
@@ -298,57 +386,48 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Editar avatar
-    document.querySelectorAll('.edit-avatar').forEach(button => {
-        button.addEventListener('click', function() {
-            const userId = this.dataset.userId;
-            const card = this.closest('.card');
-            const currentImage = card.querySelector('.profile-image').src;
-
-            document.getElementById('avatarUserId').value = userId;
-            document.getElementById('profileImage').value = 
-                currentImage.includes('ui-avatars.com') ? '' : currentImage;
-            
-            // Atualiza preview
-            updateAvatarPreview(currentImage);
-        });
+    const editAvatarModal = document.getElementById('editAvatarModal');
+    editAvatarModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const userId = button.getAttribute('data-user-id');
+        const currentImage = button.getAttribute('data-current-image');
+        
+        document.getElementById('avatarUserId').value = userId;
+        document.getElementById('profileImage').value = 
+            currentImage && !currentImage.includes('ui-avatars.com') ? currentImage : '';
+        
+        // Atualizar preview
+        document.querySelector('.avatar-preview img').src = currentImage;
     });
 
-    // Preview da imagem
+    // Preview em tempo real
     document.getElementById('profileImage').addEventListener('input', function() {
         const imageUrl = this.value;
-        const username = document.querySelector(`[data-user-id="${document.getElementById('avatarUserId').value}"]`)
-            .closest('.card').querySelector('.card-title').textContent.trim();
+        const username = document.getElementById('username').value;
+        const previewImg = document.querySelector('.avatar-preview img');
         
-        updateAvatarPreview(imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`);
+        previewImg.src = imageUrl || `https://ui-avatars.com/api/?name=${username}`;
     });
-
-    function updateAvatarPreview(url) {
-        const preview = document.querySelector('.avatar-preview img');
-        preview.src = url;
-        preview.onerror = function() {
-            const username = document.querySelector(`[data-user-id="${document.getElementById('avatarUserId').value}"]`)
-                .closest('.card').querySelector('.card-title').textContent.trim();
-            this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
-        };
-    }
 
     // Salvar avatar
     document.getElementById('saveAvatar').addEventListener('click', function() {
         const userId = document.getElementById('avatarUserId').value;
-        const profileImage = document.getElementById('profileImage').value;
-
-        fetch(`/user/update/${userId}`, {
+        const imageUrl = document.getElementById('profileImage').value;
+        
+        fetch(`/user/update_avatar/${userId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                profile_image: profileImage
+                profile_image: imageUrl
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                const modal = bootstrap.Modal.getInstance(editAvatarModal);
+                modal.hide();
                 location.reload();
             } else {
                 alert('Erro ao atualizar avatar');

@@ -354,44 +354,65 @@ def sync_tasks():
             response.raise_for_status()
             external_tasks = response.json()
             
-            if isinstance(external_tasks, dict):
-                external_tasks = external_tasks.get('items', [])
+            if isinstance(external_tasks, list):
+                tasks_to_process = external_tasks
+            elif isinstance(external_tasks, dict):
+                tasks_to_process = external_tasks.get('items', [])
+            else:
+                continue
 
-            synced = 0
-            for task_data in external_tasks:
+            for task_data in tasks_to_process:
                 try:
+                    # Extrair ID do post
                     task_id = task_data.get('id')
                     
-                    title = task_data.get('title')
+                    # Extrair e limpar título
+                    title = task_data.get('title', {})
                     if isinstance(title, dict):
-                        title = title.get('rendered', 'Sem título')
-                    elif not title:
+                        title = title.get('rendered', '').strip()
+                    elif isinstance(title, str):
+                        title = title.strip()
+                    else:
                         title = 'Sem título'
                     
+                    # Remover tags HTML do título
+                    title = title.replace('&amp;', '&').replace('&#8211;', '-')
+                    
                     # Extrair URL
-                    url = task_data.get('url') or task_data.get('link', '#')
+                    url = task_data.get('link') or task_data.get('url', '#')
 
                     # Ignorar itens sem ID ou título
                     if not task_id or not title:
                         continue
 
                     # Verificar se a tarefa já existe
-                    if not Task.query.get(task_id):
+                    existing_task = Task.query.get(task_id)
+                    
+                    if existing_task:
+                        # Atualizar tarefa existente
+                        existing_task.title = title
+                        existing_task.url = url
+                        existing_task.updated_at = datetime.now(brasilia_tz)
+                    else:
+                        # Criar nova tarefa
                         new_task = Task(
                             id=task_id,
                             title=title,
                             url=url,
-                            status='pending'
+                            status='pending',
+                            created_at=datetime.now(brasilia_tz),
+                            updated_at=datetime.now(brasilia_tz)
                         )
                         db.session.add(new_task)
-                        synced += 1
+                        total_synced += 1
                         
                 except Exception as e:
                     errors.append(f"Erro no item {task_id} da {api_url}: {str(e)}")
-                    db.session.rollback()  # Rollback para evitar problemas de transação
+                    db.session.rollback()
                     continue
 
             db.session.commit()
+            
         except requests.exceptions.RequestException as e:
             errors.append(f"Falha na conexão com {api_url}: {str(e)}")
         except ValueError as e:
@@ -401,11 +422,12 @@ def sync_tasks():
             db.session.rollback()
 
     if errors:
-        flash(f"Alguns erros ocorreram: {' | '.join(errors[:3])}", 'danger')
-    if total_synced:
-        flash(f"Total de tarefas sincronizadas: {total_synced}", 'info')
+        flash(f"Alguns erros ocorreram durante a sincronização: {' | '.join(errors[:3])}", 'warning')
+    
+    if total_synced > 0:
+        flash(f"{total_synced} novas tarefas sincronizadas com sucesso!", 'success')
     else:
-        flash("Nenhuma nova tarefa encontrada nas APIs", 'warning')
+        flash("Nenhuma nova tarefa encontrada para sincronizar", 'info')
 
     return redirect(url_for('index'))
 

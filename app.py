@@ -12,68 +12,120 @@ from flask_socketio import emit, join_room, leave_room
 from dotenv import load_dotenv
 from extensions import db, migrate, socketio
 from models import User, Task, TaskComment, ChatView
+import logging
+from logging.handlers import RotatingFileHandler
+import traceback
+import json
 
 load_dotenv()
+
+# Configuração do logging
+def setup_logger(app):
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+    
+    # Configurar logging para arquivo
+    file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    
+    # Configurar logging para console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    console_handler.setLevel(logging.INFO)
+    app.logger.addHandler(console_handler)
+    
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Inicialização do sistema de logs')
 
 brasilia_tz = timezone('America/Sao_Paulo')
 
 def create_app():
-    app = Flask(__name__)
+    # Garantir que o diretório instance existe
+    instance_path = os.path.join(os.getcwd(), 'instance')
+    if not os.path.exists(instance_path):
+        os.makedirs(instance_path)
+        print(f"✓ Diretório instance criado em: {instance_path}")
 
+    app = Flask(__name__)
+    app.logger.info(f'Diretório instance: {instance_path}')
+    
     # Configuração do banco de dados baseada no ambiente
     if os.getenv('FLASK_ENV') == 'production':
         app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     else:
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DEV_DATABASE_URL', 'sqlite:///tasks.db')
-
+        db_path = os.path.join(instance_path, 'tasks.db')
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+        app.logger.info(f'Usando banco de dados local: {db_path}')
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
-    app.config['SYNC_URLS'] = [
-        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=35&per_page=100',
-        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=51&per_page=100',
-        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=50&per_page=100',
-        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=45&per_page=100',
-        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=46&per_page=100',
-        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=27&per_page=100',
-        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=4&per_page=100',
-        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=9&per_page=100',
-        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=28&per_page=100',
-        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=29&per_page=100',
-        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=32&per_page=100',
-        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=30&per_page=100',
-    ]
-
-    # Inicializar extensões
+    
     db.init_app(app)
     migrate.init_app(app, db)
-    socketio.init_app(app, cors_allowed_origins="*")
-
+    socketio.init_app(app)
+    
+    setup_logger(app)
+    app.logger.info('Aplicação inicializada')
+    
     return app
 
 app = create_app()
 
+# Decorator para logging de requests
+def log_request():
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Log da requisição
+            request_data = {
+                'method': request.method,
+                'url': request.url,
+                'headers': dict(request.headers),
+                'data': request.get_json(silent=True) if request.is_json else dict(request.form)
+            }
+            app.logger.info(f'Request: {json.dumps(request_data, indent=2)}')
+            
+            try:
+                response = f(*args, **kwargs)
+                # Log da resposta
+                app.logger.info(f'Response: {response}')
+                return response
+            except Exception as e:
+                app.logger.error(f'Erro: {str(e)}\n{traceback.format_exc()}')
+                raise
+        return decorated_function
+    return decorator
+
 # Criar tabelas e usuário admin na inicialização
 with app.app_context():
-    db.create_all()
-    
-    # Verificar se já existe algum usuário admin
-    if not User.query.filter_by(username='admin').first():
-        admin = User(
-            username='admin',
-            email='admin@sistema.com',
-            password='admin',
-            role='admin',
-            is_active=True,
-            created_at=datetime.now(brasilia_tz),
-            profile_image='https://ui-avatars.com/api/?name=Admin'
-        )
-        db.session.add(admin)
-        try:
-            db.session.commit()
-            print("✓ Usuário admin criado com sucesso!")
-        except Exception as e:
-            db.session.rollback()
-            print(f"Erro ao criar usuário admin: {e}")
+    try:
+        db.create_all()
+        app.logger.info('Banco de dados criado com sucesso')
+        
+        # Verificar se já existe algum usuário admin
+        if not User.query.filter_by(username='admin').first():
+            admin = User(
+                username='admin',
+                email='admin@sistema.com',
+                password='admin',
+                role='admin',
+                is_active=True,
+                created_at=datetime.now(brasilia_tz),
+                profile_image='https://ui-avatars.com/api/?name=Admin'
+            )
+            db.session.add(admin)
+            try:
+                db.session.commit()
+                app.logger.info("✓ Usuário admin criado com sucesso!")
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Erro ao criar usuário admin: {e}")
+    except Exception as e:
+        app.logger.error(f"Erro ao inicializar banco de dados: {e}\n{traceback.format_exc()}")
 
 # Login decorator
 def login_required(f):
@@ -148,25 +200,37 @@ def index():
                          now=current_time)
 
 @app.route('/login', methods=['GET', 'POST'])
+@log_request()
 def login():
     if request.method == 'POST':
-        login_id = request.form['login']  # Pode ser username ou email
-        password = request.form['password']
+        login = request.form.get('login')
+        password = request.form.get('password')
         
-        # Procurar usuário por username ou email
+        app.logger.info(f'Tentativa de login para usuário: {login}')
+        
         user = User.query.filter(
-            (User.username == login_id) | (User.email == login_id)
+            (User.username == login) | (User.email == login)
         ).first()
         
         if user and user.password == password and user.is_active:
             session['user_id'] = user.id
             session['username'] = user.username
             session['role'] = user.role
+            
             user.last_login = datetime.now(brasilia_tz)
             db.session.commit()
+            
+            app.logger.info(f'Login bem-sucedido para usuário: {user.username}')
             return redirect(url_for('index'))
         else:
-            flash('Usuário/Email ou senha inválidos', 'danger')
+            if user and not user.is_active:
+                app.logger.warning(f'Tentativa de login com usuário inativo: {login}')
+                flash('Usuário inativo. Contate o administrador.', 'danger')
+            else:
+                app.logger.warning(f'Falha no login para usuário: {login}')
+                flash('Usuário ou senha inválidos.', 'danger')
+        
+        return redirect(url_for('login'))
     
     return render_template('login.html')
 
@@ -883,18 +947,21 @@ def init_db_command():
 # Adicionar eventos de Socket.IO
 @socketio.on('join')
 def on_join(data):
-    room = f"task_{data['task_id']}"
+    app.logger.info(f'Usuário entrou na sala: {data}')
+    room = str(data['task_id'])
     join_room(room)
+    app.logger.info(f'Sala {room} criada/conectada')
 
 @socketio.on('leave')
 def on_leave(data):
-    room = f"task_{data['task_id']}"
+    app.logger.info(f'Usuário saiu da sala: {data}')
+    room = str(data['task_id'])
     leave_room(room)
 
 @socketio.on('new_message')
 def handle_message(data):
-    room = f"task_{data['task_id']}"
-    emit('message', data, room=room)
+    app.logger.info(f'Nova mensagem recebida: {data}')
+    emit('message', data, room=str(data['task_id']))
 
 def init_db():
     with app.app_context():
@@ -977,26 +1044,38 @@ def create_user():
 
 @app.route('/user/update_avatar/<int:user_id>', methods=['POST'])
 @login_required
+@log_request()
 def update_avatar(user_id):
-    # Permite que admin edite qualquer avatar e usuários editem seu próprio avatar
-    if not (session.get('role') == 'admin' or session.get('user_id') == user_id):
-        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
-    
-    data = request.json
-    user = User.query.get_or_404(user_id)
-    
-    # Se não houver URL, usar avatar padrão
-    if not data.get('profile_image'):
-        user.profile_image = f'https://ui-avatars.com/api/?name={user.username}'
-    else:
-        user.profile_image = data['profile_image']
-    
     try:
+        # Log dos dados recebidos
+        app.logger.info(f'Atualizando avatar para usuário {user_id}')
+        app.logger.info(f'Dados recebidos: {request.json}')
+        
+        if not session.get('user_id'):
+            app.logger.error('Tentativa de atualização sem autenticação')
+            return jsonify({'success': False, 'message': 'Não autenticado'}), 401
+
+        user = User.query.get(user_id)
+        if not user:
+            app.logger.error(f'Usuário {user_id} não encontrado')
+            return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
+
+        if session['role'] != 'admin' and session['user_id'] != user_id:
+            app.logger.error(f'Usuário {session["user_id"]} tentou editar avatar do usuário {user_id}')
+            return jsonify({'success': False, 'message': 'Não autorizado'}), 403
+
+        profile_image = request.json.get('profile_image')
+        app.logger.info(f'Nova imagem: {profile_image}')
+
+        user.profile_image = profile_image
         db.session.commit()
+        
+        app.logger.info(f'Avatar atualizado com sucesso para usuário {user_id}')
         return jsonify({'success': True})
-    except:
+    except Exception as e:
+        app.logger.error(f'Erro ao atualizar avatar: {str(e)}\n{traceback.format_exc()}')
         db.session.rollback()
-        return jsonify({'success': False, 'message': 'Erro ao atualizar avatar'})
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/user/update_profile/<int:user_id>', methods=['POST'])
 @login_required
@@ -1037,6 +1116,18 @@ def update_profile(user_id):
     except:
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Erro ao atualizar perfil'})
+
+# Tratamento de erros
+@app.errorhandler(404)
+def not_found_error(error):
+    app.logger.error(f'Página não encontrada: {request.url}')
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    app.logger.error(f'Erro do servidor: {error}\n{traceback.format_exc()}')
+    db.session.rollback()
+    return render_template('500.html'), 500
 
 if __name__ == '__main__':
     init_db()

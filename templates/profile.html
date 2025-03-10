@@ -176,119 +176,195 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Função de log personalizada
+    function logDebug(message, data = null) {
+        const logMessage = data ? `${message}: ${JSON.stringify(data)}` : message;
+        console.log(`[DEBUG] ${new Date().toISOString()} - ${logMessage}`);
+    }
+
+    function logError(message, error = null) {
+        const logMessage = error ? `${message}: ${error.toString()}` : message;
+        console.error(`[ERROR] ${new Date().toISOString()} - ${logMessage}`);
+        if (error && error.stack) {
+            console.error(`[ERROR] Stack: ${error.stack}`);
+        }
+    }
+
     // Editar avatar
     const editAvatarModal = document.getElementById('editAvatarModal');
     editAvatarModal.addEventListener('show.bs.modal', function(event) {
-        const button = event.relatedTarget;
-        const userId = button.getAttribute('data-user-id');
-        const currentImage = button.getAttribute('data-current-image');
-        const username = button.getAttribute('data-username');
-        
-        document.getElementById('avatarUserId').value = userId;
-        const profileImageInput = document.getElementById('profileImage');
-        profileImageInput.value = currentImage && currentImage.startsWith('http') ? currentImage : '';
-        
-        const previewImg = document.querySelector('.avatar-preview img');
-        if (currentImage && currentImage.startsWith('http')) {
-            previewImg.src = currentImage;
-        } else {
-            previewImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
+        try {
+            const button = event.relatedTarget;
+            logDebug('Botão que acionou o modal', {
+                userId: button.getAttribute('data-user-id'),
+                currentImage: button.getAttribute('data-current-image'),
+                username: button.getAttribute('data-username')
+            });
+
+            const userId = button.getAttribute('data-user-id');
+            const currentImage = button.getAttribute('data-current-image');
+            const username = button.getAttribute('data-username');
+            
+            document.getElementById('avatarUserId').value = userId;
+            const profileImageInput = document.getElementById('profileImage');
+            profileImageInput.value = currentImage && currentImage.startsWith('http') ? currentImage : '';
+            
+            const previewImg = document.querySelector('.avatar-preview img');
+            logDebug('Configurando preview da imagem', {
+                currentImage,
+                willUseDefault: !currentImage || !currentImage.startsWith('http'),
+                defaultImage: `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`
+            });
+
+            if (currentImage && currentImage.startsWith('http')) {
+                previewImg.src = currentImage;
+            } else {
+                previewImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
+            }
+            
+            previewImg.onerror = function() {
+                logError('Erro ao carregar imagem de preview, usando fallback');
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
+            };
+        } catch (error) {
+            logError('Erro ao abrir modal de edição de avatar', error);
         }
-        
-        previewImg.onerror = function() {
-            this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
-        };
     });
 
     // Preview em tempo real
     document.getElementById('profileImage').addEventListener('input', function() {
-        const imageUrl = this.value.trim();
-        const username = document.querySelector('.modal.show button[data-username]').getAttribute('data-username');
-        const previewImg = document.querySelector('.avatar-preview img');
-        
-        if (imageUrl && imageUrl.startsWith('http')) {
-            previewImg.src = imageUrl;
-        } else {
-            previewImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
-        }
+        try {
+            const imageUrl = this.value.trim();
+            const username = document.querySelector('.modal.show button[data-username]')?.getAttribute('data-username');
+            
+            logDebug('Atualizando preview', { imageUrl, username });
+            
+            if (!username) {
+                logError('Nome de usuário não encontrado para preview');
+            }
 
-        previewImg.onerror = function() {
-            this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`;
-        };
+            const previewImg = document.querySelector('.avatar-preview img');
+            
+            if (imageUrl && imageUrl.startsWith('http')) {
+                previewImg.src = imageUrl;
+            } else {
+                previewImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'User')}`;
+            }
+
+            previewImg.onerror = function() {
+                logError('Erro ao carregar imagem de preview, usando fallback');
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'User')}`;
+            };
+        } catch (error) {
+            logError('Erro ao atualizar preview de imagem', error);
+        }
     });
 
     // Salvar avatar
     document.getElementById('saveAvatar').addEventListener('click', function() {
-        const userId = document.getElementById('avatarUserId').value;
-        const imageUrl = document.getElementById('profileImage').value.trim();
-        
-        fetch(`/user/update_avatar/${userId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                profile_image: imageUrl
+        try {
+            const userId = document.getElementById('avatarUserId').value;
+            const imageUrl = document.getElementById('profileImage').value.trim();
+            
+            logDebug('Iniciando atualização de avatar', { userId, imageUrl });
+
+            fetch(`/user/update_avatar/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    profile_image: imageUrl
+                })
             })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const modal = bootstrap.Modal.getInstance(editAvatarModal);
-                modal.hide();
-                location.reload();
-            } else {
-                alert('Erro ao atualizar avatar');
-            }
-        })
-        .catch(error => {
-            console.error('Erro:', error);
-            alert('Erro ao atualizar avatar');
-        });
+            .then(response => {
+                logDebug('Resposta recebida', {
+                    status: response.status,
+                    statusText: response.statusText
+                });
+                return response.json();
+            })
+            .then(data => {
+                logDebug('Dados da resposta', data);
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(editAvatarModal);
+                    modal.hide();
+                    location.reload();
+                } else {
+                    logError('Erro retornado pelo servidor', data);
+                    alert(data.message || 'Erro ao atualizar avatar');
+                }
+            })
+            .catch(error => {
+                logError('Erro na requisição de atualização do avatar', error);
+                alert('Erro ao atualizar avatar: ' + error.message);
+            });
+        } catch (error) {
+            logError('Erro ao processar atualização do avatar', error);
+            alert('Erro ao processar atualização do avatar');
+        }
     });
 
     // Editar perfil
     const editProfileModal = document.getElementById('editProfileModal');
     
     document.querySelector('.edit-profile').addEventListener('click', function() {
-        const userId = this.getAttribute('data-user-id');
-        const username = this.getAttribute('data-username');
-        const email = this.getAttribute('data-email');
-        
-        const modal = new bootstrap.Modal(editProfileModal);
-        modal.show();
-        
-        document.getElementById('profileUserId').value = userId;
-        document.getElementById('profileUsername').value = username;
-        document.getElementById('profileEmail').value = email;
+        try {
+            const userId = this.getAttribute('data-user-id');
+            const username = this.getAttribute('data-username');
+            const email = this.getAttribute('data-email');
+            
+            logDebug('Abrindo modal de edição de perfil', { userId, username, email });
+
+            const modal = new bootstrap.Modal(editProfileModal);
+            modal.show();
+            
+            document.getElementById('profileUserId').value = userId;
+            document.getElementById('profileUsername').value = username;
+            document.getElementById('profileEmail').value = email;
+        } catch (error) {
+            logError('Erro ao abrir modal de edição de perfil', error);
+        }
     });
     
     // Salvar perfil
     document.getElementById('saveProfile').addEventListener('click', function() {
-        const userId = document.getElementById('profileUserId').value;
-        const data = {
-            username: document.getElementById('profileUsername').value,
-            email: document.getElementById('profileEmail').value,
-            password: document.getElementById('profilePassword').value
-        };
-        
-        fetch(`/user/update_profile/${userId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const modal = bootstrap.Modal.getInstance(editProfileModal);
-                modal.hide();
-                location.reload();
-            } else {
-                alert(data.message || 'Erro ao atualizar perfil');
-            }
-        });
+        try {
+            const userId = document.getElementById('profileUserId').value;
+            const data = {
+                username: document.getElementById('profileUsername').value,
+                email: document.getElementById('profileEmail').value,
+                password: document.getElementById('profilePassword').value
+            };
+            
+            logDebug('Iniciando atualização de perfil', { userId, username: data.username, email: data.email });
+
+            fetch(`/user/update_profile/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                logDebug('Resposta da atualização de perfil', data);
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(editProfileModal);
+                    modal.hide();
+                    location.reload();
+                } else {
+                    logError('Erro retornado pelo servidor', data);
+                    alert(data.message || 'Erro ao atualizar perfil');
+                }
+            })
+            .catch(error => {
+                logError('Erro na requisição de atualização do perfil', error);
+                alert('Erro ao atualizar perfil');
+            });
+        } catch (error) {
+            logError('Erro ao processar atualização do perfil', error);
+        }
     });
 });
 </script>

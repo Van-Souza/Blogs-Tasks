@@ -47,6 +47,30 @@ migrate = Migrate(app, db)
 # Inicializar Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Criar tabelas e usuário admin na inicialização
+with app.app_context():
+    db.create_all()
+    
+    # Verificar se já existe algum usuário admin
+    from app import User  # Importação local para evitar circular import
+    if not User.query.filter_by(username='admin').first():
+        admin = User(
+            username='admin',
+            email='admin@sistema.com',
+            password='admin',
+            role='admin',
+            is_active=True,
+            created_at=datetime.now(brasilia_tz),
+            profile_image='https://ui-avatars.com/api/?name=Admin'
+        )
+        db.session.add(admin)
+        try:
+            db.session.commit()
+            print("✓ Usuário admin criado com sucesso!")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao criar usuário admin: {e}")
+
 # Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)

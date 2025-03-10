@@ -9,42 +9,47 @@ from functools import wraps
 from flask_migrate import Migrate
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from dotenv import load_dotenv
+from extensions import db, migrate, socketio
+from models import User, Task, TaskComment, ChatView
 
 load_dotenv()
 
 brasilia_tz = timezone('America/Sao_Paulo')
 
-app = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
 
-# Configuração do banco de dados baseada no ambiente
-if os.getenv('FLASK_ENV') == 'production':
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DEV_DATABASE_URL', 'sqlite:///tasks.db')
+    # Configuração do banco de dados baseada no ambiente
+    if os.getenv('FLASK_ENV') == 'production':
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DEV_DATABASE_URL', 'sqlite:///tasks.db')
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
-app.config['SYNC_URLS'] = [
-    'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=35&per_page=100',
-    'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=51&per_page=100',
-    'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=50&per_page=100',
-    'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=45&per_page=100',
-    'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=46&per_page=100',
-    'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=27&per_page=100',
-    'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=4&per_page=100',
-    'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=9&per_page=100',
-    'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=28&per_page=100',
-    'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=29&per_page=100',
-    'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=32&per_page=100',
-    'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=30&per_page=100',
-]
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
+    app.config['SYNC_URLS'] = [
+        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=35&per_page=100',
+        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=51&per_page=100',
+        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=50&per_page=100',
+        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=45&per_page=100',
+        'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=46&per_page=100',
+        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=27&per_page=100',
+        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=4&per_page=100',
+        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=9&per_page=100',
+        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=28&per_page=100',
+        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=29&per_page=100',
+        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=32&per_page=100',
+        'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=30&per_page=100',
+    ]
 
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-socketio = SocketIO(app, cors_allowed_origins="*")
+    # Inicializar extensões
+    db.init_app(app)
+    migrate.init_app(app, db)
+    socketio.init_app(app, cors_allowed_origins="*")
 
-# Importar modelos após inicializar db
-from models import User, Task, TaskComment, ChatView
+    return app
+
+app = create_app()
 
 # Criar tabelas e usuário admin na inicialização
 with app.app_context():
@@ -1009,7 +1014,7 @@ def update_avatar(user_id):
     # Permite que admin edite qualquer avatar e usuários editem seu próprio avatar
     if not (session.get('role') == 'admin' or session.get('user_id') == user_id):
         return jsonify({'success': False, 'message': 'Acesso negado'}), 403
-
+    
     data = request.json
     user = User.query.get_or_404(user_id)
     

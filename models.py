@@ -1,6 +1,6 @@
 from datetime import datetime
 from pytz import timezone
-from app import db
+from extensions import db
 
 brasilia_tz = timezone('America/Sao_Paulo')
 

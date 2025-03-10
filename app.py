@@ -1,3 +1,6 @@
+from gevent import monkey
+monkey.patch_all()
+
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime, timedelta
 from pytz import timezone
@@ -352,71 +355,82 @@ def sync_tasks():
         try:
             response = requests.get(api_url, timeout=10)
             response.raise_for_status()
-            external_tasks = response.json()
             
+            # Usar json.loads diretamente do texto da resposta
+            try:
+                external_tasks = response.json()
+            except ValueError as e:
+                errors.append(f"Erro ao decodificar JSON de {api_url}: {str(e)}")
+                continue
+            
+            # Extrair lista de tarefas
+            tasks_to_process = []
             if isinstance(external_tasks, list):
                 tasks_to_process = external_tasks
             elif isinstance(external_tasks, dict):
                 tasks_to_process = external_tasks.get('items', [])
-            else:
+                if not tasks_to_process and 'id' in external_tasks:
+                    # Se for um único item
+                    tasks_to_process = [external_tasks]
+            
+            if not tasks_to_process:
                 continue
 
             for task_data in tasks_to_process:
                 try:
-                    # Extrair ID do post
+                    # Extrair dados básicos
                     task_id = task_data.get('id')
+                    if not task_id:
+                        continue
                     
-                    # Extrair e limpar título
-                    title = task_data.get('title', {})
-                    if isinstance(title, dict):
-                        title = title.get('rendered', '').strip()
-                    elif isinstance(title, str):
-                        title = title.strip()
-                    else:
-                        title = 'Sem título'
+                    # Extrair título com tratamento simplificado
+                    title = ''
+                    raw_title = task_data.get('title', {})
+                    if isinstance(raw_title, dict):
+                        title = raw_title.get('rendered', '').strip()
+                    elif isinstance(raw_title, str):
+                        title = raw_title.strip()
                     
-                    # Remover tags HTML do título
+                    if not title:
+                        continue
+                    
+                    # Limpar título
                     title = title.replace('&amp;', '&').replace('&#8211;', '-')
                     
                     # Extrair URL
-                    url = task_data.get('link') or task_data.get('url', '#')
-
-                    # Ignorar itens sem ID ou título
-                    if not task_id or not title:
+                    url = task_data.get('link') or task_data.get('url', '')
+                    if not url:
                         continue
 
-                    # Verificar se a tarefa já existe
-                    existing_task = Task.query.get(task_id)
-                    
-                    if existing_task:
-                        # Atualizar tarefa existente
-                        existing_task.title = title
-                        existing_task.url = url
-                        existing_task.updated_at = datetime.now(brasilia_tz)
-                    else:
-                        # Criar nova tarefa
-                        new_task = Task(
-                            id=task_id,
-                            title=title,
-                            url=url,
-                            status='pending',
-                            created_at=datetime.now(brasilia_tz),
-                            updated_at=datetime.now(brasilia_tz)
-                        )
-                        db.session.add(new_task)
-                        total_synced += 1
+                    # Atualizar ou criar tarefa
+                    with app.app_context():
+                        existing_task = Task.query.get(task_id)
+                        
+                        if existing_task:
+                            existing_task.title = title
+                            existing_task.url = url
+                            existing_task.updated_at = datetime.now(brasilia_tz)
+                        else:
+                            new_task = Task(
+                                id=task_id,
+                                title=title,
+                                url=url,
+                                status='pending',
+                                created_at=datetime.now(brasilia_tz),
+                                updated_at=datetime.now(brasilia_tz)
+                            )
+                            db.session.add(new_task)
+                            total_synced += 1
+                        
+                        db.session.commit()
                         
                 except Exception as e:
                     errors.append(f"Erro no item {task_id} da {api_url}: {str(e)}")
                     db.session.rollback()
                     continue
-
-            db.session.commit()
             
         except requests.exceptions.RequestException as e:
             errors.append(f"Falha na conexão com {api_url}: {str(e)}")
-        except ValueError as e:
-            errors.append(f"Resposta inválida de {api_url}: {str(e)}")
         except Exception as e:
             errors.append(f"Erro geral em {api_url}: {str(e)}")
             db.session.rollback()

@@ -1,13 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from pytz import timezone
 from sqlalchemy import case
 import requests
 import os
 from functools import wraps
-from flask_migrate import Migrate
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import emit, join_room, leave_room
 from dotenv import load_dotenv
 from extensions import db, migrate, socketio
 from models import User, Task, TaskComment, ChatView
@@ -74,76 +72,6 @@ with app.app_context():
             db.session.rollback()
             print(f"Erro ao criar usuário admin: {e}")
 
-# Models
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default='reviewer')
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
-    last_login = db.Column(db.DateTime)
-    profile_image = db.Column(db.String(200))
-    tasks = db.relationship('Task', backref='assignee', lazy=True)
-    comments = db.relationship('TaskComment', backref='user', lazy=True)
-
-class TaskComment(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
-    is_system_message = db.Column(db.Boolean, default=False)
-
-class ChatView(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    last_viewed_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
-
-class Task(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    STATUS_PENDING = 'pending'
-    STATUS_IN_PROGRESS = 'in_progress'
-    STATUS_WAITING_APPROVAL = 'waiting_approval'
-    STATUS_COMPLETED = 'completed'
-    
-    status = db.Column(db.String(20), default='pending')
-    completion_date = db.Column(db.DateTime)  # Data quando foi marcada como concluída
-    priority = db.Column(db.Integer, default=3)
-    deadline = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(brasilia_tz), onupdate=lambda: datetime.now(brasilia_tz))
-    assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'))
-    url = db.Column(db.String(500))
-    is_active = db.Column(db.Boolean, default=True)
-    comments = db.relationship('TaskComment', backref='task', lazy=True, order_by='TaskComment.created_at')
-    chat_views = db.relationship('ChatView', backref='task', lazy=True)
-
-    def has_new_messages(self, user_id):
-        view = ChatView.query.filter_by(task_id=self.id, user_id=user_id).first()
-        
-        # Se não houver comentários, não há novas mensagens
-        if not self.comments:
-            return False
-            
-        # Se não houver visualização
-        if not view:
-            # Retorna True se houver comentários que não são do usuário atual
-            return any(comment.user_id != user_id for comment in self.comments)
-        
-        # Verifica se há comentários mais recentes que a última visualização
-        # que não são do usuário atual
-        latest_comment = max(
-            (c for c in self.comments if c.user_id != user_id), 
-            key=lambda x: x.created_at,
-            default=None
-        )
-        
-        return latest_comment and latest_comment.created_at > view.last_viewed_at
-
 # Login decorator
 def login_required(f):
     @wraps(f)
@@ -203,10 +131,8 @@ def index():
     
     # Converter os deadlines para terem fuso horário
     for task in tasks.items:
-        if task.deadline:
-            # Se o deadline não tiver fuso horário, adiciona
-            if task.deadline.tzinfo is None:
-                task.deadline = brasilia_tz.localize(task.deadline)
+        if task.deadline and task.deadline.tzinfo is None:
+            task.deadline = brasilia_tz.localize(task.deadline)
     
     return render_template('index.html', 
                          tasks=tasks,
@@ -218,22 +144,24 @@ def index():
                          search=search,
                          now=current_time)
 
-# Restante do código...
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form['username']
+        password = request.form['password']
+        
         user = User.query.filter_by(username=username).first()
         
-        if user and user.password == password:
+        if user and user.password == password and user.is_active:
             session['user_id'] = user.id
             session['username'] = user.username
             session['role'] = user.role
+            user.last_login = datetime.now(brasilia_tz)
+            db.session.commit()
             return redirect(url_for('index'))
-        
-        flash('Credenciais inválidas', 'danger')
+        else:
+            flash('Usuário ou senha inválidos', 'danger')
+    
     return render_template('login.html')
 
 @app.route('/logout')

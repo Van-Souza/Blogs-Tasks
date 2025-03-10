@@ -150,10 +150,13 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        login_id = request.form['login']  # Pode ser username ou email
         password = request.form['password']
         
-        user = User.query.filter_by(username=username).first()
+        # Procurar usuário por username ou email
+        user = User.query.filter(
+            (User.username == login_id) | (User.email == login_id)
+        ).first()
         
         if user and user.password == password and user.is_active:
             session['user_id'] = user.id
@@ -163,7 +166,7 @@ def login():
             db.session.commit()
             return redirect(url_for('index'))
         else:
-            flash('Usuário ou senha inválidos', 'danger')
+            flash('Usuário/Email ou senha inválidos', 'danger')
     
     return render_template('login.html')
 

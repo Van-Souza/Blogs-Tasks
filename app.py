@@ -2,20 +2,17 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from pytz import timezone
-from sqlalchemy import case  # Importação adicionada
-brasilia_tz = timezone('America/Sao_Paulo')
+from sqlalchemy import case
 import requests
 import os
 from functools import wraps
-from pytz import timezone
 from flask_migrate import Migrate
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from dotenv import load_dotenv
 
-load_dotenv()  # Carrega as variáveis do arquivo .env
+load_dotenv()
 
 brasilia_tz = timezone('America/Sao_Paulo')
-
 
 app = Flask(__name__)
 
@@ -41,18 +38,19 @@ app.config['SYNC_URLS'] = [
     'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=32&per_page=100',
     'https://blog.eagenda.com.br/wp-json/wp/v2/docs?doc_category=30&per_page=100',
 ]
+
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-# Inicializar Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Importar modelos após inicializar db
+from models import User, Task, TaskComment, ChatView
 
 # Criar tabelas e usuário admin na inicialização
 with app.app_context():
     db.create_all()
     
     # Verificar se já existe algum usuário admin
-    from app import User  # Importação local para evitar circular import
     if not User.query.filter_by(username='admin').first():
         admin = User(
             username='admin',

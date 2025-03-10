@@ -1,4 +1,5 @@
-from app import app, db, User
+from app import app, db
+from models import User
 from flask_migrate import upgrade, init, migrate, stamp
 from datetime import datetime
 from pytz import timezone

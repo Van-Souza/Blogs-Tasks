@@ -10,14 +10,23 @@ from functools import wraps
 from pytz import timezone
 from flask_migrate import Migrate
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from dotenv import load_dotenv
+
+load_dotenv()  # Carrega as variáveis do arquivo .env
 
 brasilia_tz = timezone('America/Sao_Paulo')
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks.db'
+
+# Configuração do banco de dados baseada no ambiente
+if os.getenv('FLASK_ENV') == 'production':
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DEV_DATABASE_URL', 'sqlite:///tasks.db')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
 app.config['SYNC_URLS'] = [
     'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=35&per_page=100',
     'https://meuatendimentovirtual.com.br/wp-json/wp/v2/docs?doc_category=51&per_page=100',
@@ -978,7 +987,7 @@ def update_avatar(user_id):
     # Permite que admin edite qualquer avatar e usuários editem seu próprio avatar
     if not (session.get('role') == 'admin' or session.get('user_id') == user_id):
         return jsonify({'success': False, 'message': 'Acesso negado'}), 403
-    
+
     data = request.json
     user = User.query.get_or_404(user_id)
     
